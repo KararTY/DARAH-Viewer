@@ -1,4 +1,5 @@
-# SARAH Viewer
+# S.A.R.A.H. Viewer
+# Server Auto Record Archiver Heroine
 ### [Server Auto Record Archiver Heroine](https://github.com/kararty/ServerAutoRecordArchiverHeroine)
 
 Browse through archives with ease using this HTML GUI specifically designed for the S.A.R.A.H. archival format.
