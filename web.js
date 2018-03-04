@@ -103,7 +103,7 @@ function paginationRender (p) {
       </li>
     ` : hyper.wire()`
       <li>
-        <a class="${`pagination-link${p.c === 0 ? ' is-current' : ''}`}" data-id="${p.id}" data-f="${p.c > 0 ? (p.c < p.max ? p.c - 1 : p.c - 2) : '1'}" onclick=${loadChannel}>(${p.c > 0 ? (p.c < p.max ? p.c - 1 : p.c - 2) : '0'})</a>
+        <a class="${`pagination-link${p.c === 0 ? ' is-current' : ''}`}" data-id="${p.id}" data-f="${p.c > 0 ? (p.c < p.max ? p.c - 1 : p.c - 2) : '0'}" onclick=${loadChannel}>(${p.c > 0 ? (p.c < p.max ? p.c - 1 : p.c - 2) : '0'})</a>
       </li>
       ${p.max > 1 ? hyper.wire()`
         <li>
@@ -136,13 +136,20 @@ function iconsRender (i) {
   }
 }
 
-function loadMessages (p, m, u, r) {
+function loadMessages (p, m, u, r, scroll) {
   var messages = m.sort((a, b) => {
     return (a.t || a.timestamp) - (b.t || b.timestamp)
   }).reverse().slice(p.i.i * 100, ((p.i.i * 100) + 100) < m.length ? ((p.i.i * 100) + 100) : undefined).reverse()
   var max = Math.ceil(m.length / 100)
 
-  console.log(p, cacheChannels, messages)
+  if (!scroll && messages.length === 0) {
+    console.log('Resetting.')
+    p.i.i = 0 // Reset functionality. Just a temporary fix.
+    messages = m.sort((a, b) => { // Re-calculate
+      return (a.t || a.timestamp) - (b.t || b.timestamp)
+    }).reverse().slice(p.i.i * 100, ((p.i.i * 100) + 100) < m.length ? ((p.i.i * 100) + 100) : undefined).reverse()
+  }
+  console.log(p, cacheChannels, messages, scroll, messages.length, max)
   if ((p.i.i === 0) || p.w === 'below') {
     document.getElementById('messages').appendChild(hyper.wire()`
       <div data-set="${p.i.i}">
@@ -175,17 +182,18 @@ function loadMessages (p, m, u, r) {
     if (p.i.i < max && document.getElementById('messages').scrollTop === 0) {
       cacheChannels[p.c].i += 1
       cacheChannels[p.c].w = document.getElementById('messages').scrollTop
-      loadMessages({ i: { i: cacheChannels[p.c].i }, c: p.c, w: 'above', s: document.getElementById('messages').scrollHeight }, m, u, r)
+      loadMessages({ i: { i: cacheChannels[p.c].i }, c: p.c, w: 'above', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
     } else if (cacheChannels[p.c].i > 0 && document.getElementById('messages').scrollTop > document.getElementById('messages').scrollHeight / 1.1) {
       cacheChannels[p.c].i -= 1
       cacheChannels[p.c].w = document.getElementById('messages').scrollTop
-      if (!document.querySelector(`[data-set="${cacheChannels[p.c].i}"]`)) loadMessages({ i: { i: cacheChannels[p.c].i }, c: p.c, w: 'below', s: document.getElementById('messages').scrollHeight }, m, u, r)
+      if (!document.querySelector(`[data-set="${cacheChannels[p.c].i}"]`)) loadMessages({ i: { i: cacheChannels[p.c].i }, c: p.c, w: 'below', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
     }
   }
-  if (p.i.i === 0) document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight
+  if (p.i.i === 0 && !document.querySelector(`[data-set="1"]`)) document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight
 }
 
 function loadChannel (m = new MouseEvent()) {
+  loading = document.getElementById('guildname').dataset.l
   var c = m.target.dataset.id
   var f = Number.isNaN(Number(m.target.dataset.f)) ? undefined : Number(m.target.dataset.f)
   if (!cacheChannels[c]) cacheChannels[c] = { i: 0, f: 0 }
@@ -195,18 +203,21 @@ function loadChannel (m = new MouseEvent()) {
   var fReader = new FileReader()
   fReader.addEventListener('load', json => {
     var p = JSON.parse(json.target.result)
-    document.getElementById('channelname').innerHTML = '# ' + (p.c ? p.c.n : p.n || p.name)
-    document.getElementById('channeltopic').innerHTML = String((p.c ? p.c.to : p.to || p.topic) || '').substr(0, 101)
-    if (document.getElementById('channeltopic').innerText.length > 99) document.getElementById('channeltopic').innerHTML += '...'
-    if (document.getElementById('channeltopic').innerText.length < 2) document.getElementById('channeltopic').classList.add('is-hidden')
-    else document.getElementById('channeltopic').classList.remove('is-hidden')
-    document.getElementById('channeltopic').title = (p.c ? p.c.to : p.to || p.topic) || ''
 
     var backwardsCompat = {
+      name: p.c ? p.c.n : (p.n || p.name),
+      topic: p.c ? p.c.to : (p.to || p.topic),
       m: p.m || p.messages,
       u: p.u || p.users,
       r: p.r || p.roles
     }
+
+    document.getElementById('channelname').innerHTML = `# ${backwardsCompat.name || Object.entries(p.u)[0][1].n}`
+    document.getElementById('channeltopic').innerHTML = String(backwardsCompat.topic || backwardsCompat.r ? '' : Object.entries(p.u)[0][1].tg).substr(0, 101)
+    document.getElementById('channeltopic').title = backwardsCompat.topic || backwardsCompat.r ? '' : Object.entries(p.u)[0][1].tg
+    if (document.getElementById('channeltopic').innerText.length > 99) document.getElementById('channeltopic').innerHTML += '...'
+    if (document.getElementById('channeltopic').innerText.length < 2) document.getElementById('channeltopic').classList.add('is-hidden')
+    else document.getElementById('channeltopic').classList.remove('is-hidden')
 
     document.getElementById('messages').innerHTML = ''
     loadMessages({i: cacheChannels[c], c}, backwardsCompat.m, backwardsCompat.u, backwardsCompat.r)
@@ -231,6 +242,7 @@ function loadChannel (m = new MouseEvent()) {
 }
 
 function renderChannels (c) {
+  loading = document.getElementById('guildname').dataset.l
   var type = c[0].ty ? 'ty' : 'type'
   var textChannels = c.filter(c => c[type] === 'text').sort((a, b) => {
     return (a.pos || a.position) - (b.pos || b.position)
@@ -255,7 +267,6 @@ function renderChannels (c) {
 }
 
 function loadGuild (i) {
-  loading = i
   var guildInfo = cacheFiles[i].f
   document.getElementById('channelname').innerHTML = ''
   document.getElementById('channeltopic').innerHTML = ''
@@ -265,10 +276,23 @@ function loadGuild (i) {
 
   document.getElementById('pagination').classList.remove('is-hidden')
 
+  var backwardsCompat = {
+    name: guildInfo.n || guildInfo.name,
+    channels: guildInfo.c || guildInfo.channels,
+    memberCount: guildInfo.m || guildInfo.memberCount
+  }
+
   document.getElementById('members').querySelector('.menu-list').classList.add('is-hidden')
-  document.getElementById('guildname').innerText = guildInfo.n || guildInfo.name
-  document.getElementById('members').querySelector('.menu-label').innerText = `Members - ${guildInfo.m || guildInfo.memberCount}`
-  renderChannels(guildInfo.c || guildInfo.channels)
+  document.getElementById('guildname').innerText = backwardsCompat.name || guildInfo.o.n
+  document.getElementById('guildname').dataset.l = loading
+  document.getElementById('members').querySelector('.menu-label').innerText = `Members - ${backwardsCompat.memberCount}`
+  if (backwardsCompat.channels) {
+    document.querySelector('.column.is-narrow.is-paddingless.d-server-channels-bar.has-text-white').classList.remove('is-hidden')
+    renderChannels(backwardsCompat.channels)
+  } else {
+    document.querySelector('.column.is-narrow.is-paddingless.d-server-channels-bar.has-text-white').classList.add('is-hidden')
+    loadChannel({ target: { dataset: { id: guildInfo.id || guildInfo.i } } })
+  }
 }
 
 // Modal
@@ -300,10 +324,15 @@ function loadGuildInfo (i) {
   var fReader = new FileReader()
   fReader.addEventListener('load', json => {
     var p = JSON.parse(json.target.result)
+    var backwardsCompat = {
+      icon: p.u || p.icon,
+      name: p.n || p.name
+    }
+    backwardsCompat.symbol = backwardsCompat.name ? backwardsCompat.name.substr(0, 2) : p.o.n.substr(0, 2)
     sideBarButtons.unshift({
-      u: p.u || p.icon,
-      n: p.n || p.name,
-      s: p.n ? p.n.substr(0, 1) : p.name.substr(0, 1),
+      u: backwardsCompat.icon,
+      n: backwardsCompat.name || p.o.n,
+      s: backwardsCompat.symbol,
       a: function () {
         loadGuild(i)
       }
@@ -341,7 +370,7 @@ function loadFile (n) {
   }).then(res => {
     if (n.startsWith('[CHANNEL]')) {
       if (!cacheFiles[loading].fi[n.match(/\([0-9]+\)/i)[0].substr(1).slice(0, -1)]) cacheFiles[loading].fi[n.match(/\([0-9]+\)/i)[0].substr(1).slice(0, -1)] = []
-      cacheFiles[loading].fi[n.match(/\([0-9]+\)/i)[0].substr(1).slice(0, -1)].push({i: `${n.match(/_[0-9]+\.json/i)[0].substr(1).slice(0, -5)}`, res})
+      cacheFiles[loading].fi[n.match(/\([0-9]+\)/i)[0].substr(1).slice(0, -1)].push({f: `${n.match(/_[0-9]+\.json/i)[0].substr(1).slice(0, -5)}`, res})
       cacheFiles[loading].fi[n.match(/\([0-9]+\)/i)[0].substr(1).slice(0, -1)] = cacheFiles[loading].fi[n.match(/\([0-9]+\)/i)[0].substr(1).slice(0, -1)].sort((a, b) => {
         return a.i - b.i
       })
@@ -404,7 +433,7 @@ function chooseFilesModal (f, i) {
         ${f.filter(z => (z.p.name.startsWith('[CHANNEL]') || z.p.name.startsWith('[GUILD_INFO]')) && z.p.name.endsWith('.json')).map((z, i, a) => hyper.wire()`
           <label class="checkbox">
             <input type="checkbox" data-name="${z.p.name}" checked disabled=${z.p.name.startsWith('[GUILD_INFO]') ? true : null}>
-            <span title="${z.p.name + ' ' + moment(z.p.date).format()}">${z.p.name.startsWith('[CHANNEL]') ? `Channel ${z.p.name.match(/\][\S]+\(/i)[0].substr(1).slice(0, -1)} (${z.p.name.match(/_[0-9]+\.json/i)[0].substr(1).slice(0, -5)})` : z.p.name.startsWith('[GUILD_INFO]') ? `(Required - Guild info) ${z.p.name.match(/\][\w\d ]+\(/i)[0].substr(1).slice(0, -1)}` : z.p.name}</span>\t<small><strong>~${z.p._data.uncompressedSize >= 1000000 ? Number(Number(z.p._data.uncompressedSize / 1024) / 1024).toFixed(2) + ' mb' : Number(z.p._data.uncompressedSize / 1024).toFixed(2) + ' kb'}</strong></small>
+            <span title="${z.p.name + ' ' + moment(z.p.date).format()}">${z.p.name.startsWith('[CHANNEL]') ? `Channel ${z.p.name.match(/\][\S]+\(/i) ? z.p.name.match(/\][\S]+\(/i)[0].substr(1).slice(0, -1) : ''} (${z.p.name.match(/_[0-9]+\.json/i)[0].substr(1).slice(0, -5)})` : z.p.name.startsWith('[GUILD_INFO]') ? `(Required - Guild info) ${z.p.name.match(/\][\w\d ]+\(/i) ? z.p.name.match(/\][\w\d ]+\(/i)[0].substr(1).slice(0, -1) : ''}` : z.p.name}</span>\t<small><strong>~${z.p._data.uncompressedSize >= 1000000 ? Number(Number(z.p._data.uncompressedSize / 1024) / 1024).toFixed(2) + ' mb' : Number(z.p._data.uncompressedSize / 1024).toFixed(2) + ' kb'}</strong></small>
           </label>
           <br>
         `)}
