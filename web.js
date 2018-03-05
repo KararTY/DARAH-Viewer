@@ -24,7 +24,7 @@ var licenseMIT = `
 
 var cacheFiles = []
 var loading
-var cacheChannels = {}
+var cacheChannels = []
 var currentZIP
 
 function messageRender (m, u, r) {
@@ -36,6 +36,12 @@ function messageRender (m, u, r) {
     a: (m.c ? m.c.a : m.content.attachments) || []
   }
   k.c = k.u.r ? ((k.u.r.length > 0) ? r[k.u.r[k.u.r.length - 1]].c : undefined) : (k.u.roles ? ((k.u.roles.length > 0) ? r[k.u.roles[k.u.roles.length - 1]].hexColor : undefined) : undefined)
+  var backwardsCompat = (i) => {
+    return {
+      name: i.n || i.name,
+      url: i.u || i.url
+    }
+  }
   return hyper.wire()`
     <div class="media d-server-message">
       <figure class="media-left image is-40x40">
@@ -43,11 +49,13 @@ function messageRender (m, u, r) {
       </figure>
       <div class="media-content">
         <div class="content" style=${{ overflow: 'hidden' }}>
-          <p>
+          <p style="word-break:break-word;">
             <strong style=${{ color: k.c }} title="${k.u.tg || k.u.tag}">${(k.u.nn || k.u.nickname) ? k.u.nn || k.u.nickname : k.u.n || k.u.name}</strong> <small title="${moment(m.t || m.timestamp).format()}">${moment(m.t || m.timestamp).fromNow()}</small> ${(m.e || m.edited) ? hyper.wire()`<small title="${moment(m.e || m.edited).format()}"> (edited)</small>` : ''}
-            <br><span style=${{ whiteSpace: 'pre-wrap' }}>${k.m}</span>
+            ${k.m.length > 0 ? hyper.wire()`<br><span style=${{ whiteSpace: 'pre-wrap' }}>${k.m}</span>` : ''}
             ${k.a.length > 0 ? k.a.map(i => hyper.wire()`
-              <br><a title="${i.n || i.filename}" href="${i.u || i.url}" target="_blank"><img src="${i.u || i.url}"></img></a>
+              ${['webp', 'png', 'gif', 'jpg', 'jpeg', 'apng', 'bmp', 'ico'].includes(i.n.toLowerCase().split('.').pop()) ? hyper.wire()`
+                <br><a title="${backwardsCompat(i).name}" href="${backwardsCompat(i).url}" target="_blank"><img src="${backwardsCompat(i).url}"></img></a>
+              ` : hyper.wire()`<br><a title="${backwardsCompat(i).name}" href="${backwardsCompat(i).url}" target="_blank">${backwardsCompat(i).name}</a>`}
             `) : ''}
           </p>
         </div>
@@ -120,20 +128,11 @@ function paginationRender (p) {
 }
 
 function iconsRender (i) {
-  if (i.u) {
-    return hyper.wire()`
-      <a onclick=${i.a}>
-        <p title="${i.n}" style=${{ backgroundImage: `url(${i.u})` }}>${i.s}</p>
-      </a>
-    `
-  } else {
-    // Button
-    return hyper.wire()`
-      <button onclick=${i.a}>
-        <span title="${i.n}">${i.s}</span>
-      </button>
-    `
-  }
+  return hyper.wire()`
+    <button onclick=${i.a} title="${i.n}" style=${{ backgroundImage: i.u ? `url(${i.u})` : undefined }}>
+      <span>${i.s}</span>
+    </button>
+  `
 }
 
 function loadMessages (p, m, u, r, scroll) {
@@ -150,56 +149,62 @@ function loadMessages (p, m, u, r, scroll) {
     }).reverse().slice(p.i.i * 100, ((p.i.i * 100) + 100) < m.length ? ((p.i.i * 100) + 100) : undefined).reverse()
   }
   console.log(p, cacheChannels, messages, scroll, messages.length, max)
-  if ((p.i.i === 0) || p.w === 'below') {
-    document.getElementById('messages').appendChild(hyper.wire()`
-      <div data-set="${p.i.i}">
-        ${messages.map(m => messageRender(m, u, r))}
-        ${p.i.i > 0 ? hyper.wire()`<hr>` : ''}
-      </div>
-    `)
-    document.getElementById('messages').scrollTop = p.s - (p.s - (p.s / 1.1))
-    if (document.querySelectorAll('[data-set]').length > 3) document.getElementById('messages').removeChild(document.getElementById('messages').firstChild)
-  } else if (p.w === 'above') {
-    document.getElementById('messages').insertBefore(hyper.wire()`
-      <div data-set="${p.i.i}">
-        ${messages.map(m => messageRender(m, u, r))}
-        ${p.i.i > 0 ? hyper.wire()`<hr>` : ''}
-      </div>
-    `, document.getElementById('messages').firstChild)
-    document.getElementById('messages').scrollTop = (document.getElementById('messages').scrollHeight - p.s)
-    if (document.querySelectorAll('[data-set]').length > 4) document.getElementById('messages').removeChild(document.getElementById('messages').lastChild)
-  } else {
-    document.getElementById('messages').appendChild(hyper.wire()`
-      <div data-set="${p.i.i}">
-        ${messages.map(m => messageRender(m, u, r))}
-        ${p.i.i > 0 ? hyper.wire()`<hr>` : ''}
-      </div>
-    `)
-    // document.getElementById('messages').scrollTop = cacheChannels[p.c].w
-  }
-  document.getElementById('messages').onscroll = null
-  document.getElementById('messages').onscroll = () => {
-    if (p.i.i < max && document.getElementById('messages').scrollTop === 0) {
-      cacheChannels[p.c].i += 1
-      cacheChannels[p.c].w = document.getElementById('messages').scrollTop
-      loadMessages({ i: { i: cacheChannels[p.c].i }, c: p.c, w: 'above', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
-    } else if (cacheChannels[p.c].i > 0 && document.getElementById('messages').scrollTop > document.getElementById('messages').scrollHeight / 1.1) {
-      cacheChannels[p.c].i -= 1
-      cacheChannels[p.c].w = document.getElementById('messages').scrollTop
-      if (!document.querySelector(`[data-set="${cacheChannels[p.c].i}"]`)) loadMessages({ i: { i: cacheChannels[p.c].i }, c: p.c, w: 'below', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
+  if (messages.length > 0) {
+    if ((p.i.i === 0) || p.w === 'below') {
+      document.getElementById('messages').appendChild(hyper.wire()`
+        <div data-set="${p.i.i}">
+          ${messages.map(m => messageRender(m, u, r))}
+          ${p.i.i > 0 ? hyper.wire()`<hr>` : ''}
+        </div>
+      `)
+      if (document.querySelectorAll('[data-set]').length > 1) document.getElementById('messages').scrollTop = p.s - (p.s - (p.s / 1.1))
+      else if (p.i.i > 0) {
+        console.log('No')
+        loadMessages({ i: { i: cacheChannels[loading][p.c].i - 1 }, c: p.c }, m, u, r)
+      }
+      if (document.querySelectorAll('[data-set]').length > 3) document.getElementById('messages').removeChild(document.getElementById('messages').firstChild)
+    } else if (p.w === 'above') {
+      document.getElementById('messages').insertBefore(hyper.wire()`
+        <div data-set="${p.i.i}">
+          ${messages.map(m => messageRender(m, u, r))}
+          ${p.i.i > 0 ? hyper.wire()`<hr>` : ''}
+        </div>
+      `, document.getElementById('messages').firstChild)
+      document.getElementById('messages').scrollTop = (document.getElementById('messages').scrollHeight - p.s)
+      if (document.querySelectorAll('[data-set]').length > 3) document.getElementById('messages').removeChild(document.getElementById('messages').lastChild)
+    } else {
+      document.getElementById('messages').appendChild(hyper.wire()`
+        <div data-set="${p.i.i}">
+          ${messages.map(m => messageRender(m, u, r))}
+          ${p.i.i > 0 ? hyper.wire()`<hr>` : ''}
+        </div>
+      `)
+      // document.getElementById('messages').scrollTop = cacheChannels[loading][p.c].w
     }
+    document.getElementById('messages').onscroll = null
+    document.getElementById('messages').onscroll = () => {
+      if (p.i.i < max && document.getElementById('messages').scrollTop === 0) {
+        cacheChannels[loading][p.c].i += 1
+        cacheChannels[loading][p.c].w = document.getElementById('messages').scrollTop
+        loadMessages({ i: { i: cacheChannels[loading][p.c].i }, c: p.c, w: 'above', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
+      } else if (cacheChannels[loading][p.c].i > 0 && document.getElementById('messages').scrollTop > document.getElementById('messages').scrollHeight / 1.1) {
+        cacheChannels[loading][p.c].i -= 1
+        cacheChannels[loading][p.c].w = document.getElementById('messages').scrollTop
+        if (!document.querySelector(`[data-set="${cacheChannels[loading][p.c].i}"]`)) loadMessages({ i: { i: cacheChannels[loading][p.c].i }, c: p.c, w: 'below', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
+      }
+    }
+    if (p.i.i === 0 && !document.querySelector(`[data-set="1"]`)) document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight
   }
-  if (p.i.i === 0 && !document.querySelector(`[data-set="1"]`)) document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight
 }
 
 function loadChannel (m = new MouseEvent()) {
-  loading = document.getElementById('guildname').dataset.l
   var c = m.target.dataset.id
   var f = Number.isNaN(Number(m.target.dataset.f)) ? undefined : Number(m.target.dataset.f)
-  if (!cacheChannels[c]) cacheChannels[c] = { i: 0, f: 0 }
+  if (!cacheChannels[loading]) cacheChannels[loading] = {}
+  if (!cacheChannels[loading][c]) cacheChannels[loading][c] = { i: 0, f: 0 }
   if (typeof f === 'number') cacheChannels[c].f = f
 
-  console.log(c, f, cacheChannels[c], cacheFiles[loading].fi[c])
+  console.log(loading, c, f, cacheChannels[loading][c], cacheFiles[loading].fi[c])
   var fReader = new FileReader()
   fReader.addEventListener('load', json => {
     var p = JSON.parse(json.target.result)
@@ -209,18 +214,21 @@ function loadChannel (m = new MouseEvent()) {
       topic: p.c ? p.c.to : (p.to || p.topic),
       m: p.m || p.messages,
       u: p.u || p.users,
-      r: p.r || p.roles
+      r: p.r || p.roles,
+      g: p.g || p.guild
     }
-
-    document.getElementById('channelname').innerHTML = `# ${backwardsCompat.name || Object.entries(p.u)[0][1].n}`
-    document.getElementById('channeltopic').innerHTML = String(backwardsCompat.topic || backwardsCompat.r ? '' : Object.entries(p.u)[0][1].tg).substr(0, 101)
-    document.getElementById('channeltopic').title = backwardsCompat.topic || backwardsCompat.r ? '' : Object.entries(p.u)[0][1].tg
+    if (!Object.keys(backwardsCompat.r).length > 0) backwardsCompat.r = undefined
+    document.getElementById('channelname').innerHTML = `# ${backwardsCompat.name || `${Object.entries(p.u)[0][1].n} & ${Object.entries(p.u)[1][1].n}`}`
+    document.getElementById('channeltopic').innerHTML = String(backwardsCompat.topic ? backwardsCompat.topic : (backwardsCompat.g ? '' : `${Object.entries(p.u)[0][1].tg} & ${Object.entries(p.u)[1][1].tg}`)).substr(0, 101)
+    document.getElementById('channeltopic').title = backwardsCompat.topic ? backwardsCompat.topic : (backwardsCompat.g ? '' : `${Object.entries(p.u)[0][1].tg} & ${Object.entries(p.u)[1][1].tg}`)
     if (document.getElementById('channeltopic').innerText.length > 99) document.getElementById('channeltopic').innerHTML += '...'
     if (document.getElementById('channeltopic').innerText.length < 2) document.getElementById('channeltopic').classList.add('is-hidden')
     else document.getElementById('channeltopic').classList.remove('is-hidden')
 
     document.getElementById('messages').innerHTML = ''
-    loadMessages({i: cacheChannels[c], c}, backwardsCompat.m, backwardsCompat.u, backwardsCompat.r)
+    // cacheChannels[loading][c].i--
+    console.log(cacheChannels[loading][c].i)
+    loadMessages({i: cacheChannels[loading][c], c}, backwardsCompat.m, backwardsCompat.u, backwardsCompat.r)
 
     document.getElementById('members').querySelector('.menu-list').classList.remove('is-hidden')
     hyper.bind(document.getElementById('members').querySelector('.menu-list'))`
@@ -231,18 +239,17 @@ function loadChannel (m = new MouseEvent()) {
 
     document.getElementById('pagination').classList.remove('is-hidden')
     hyper.bind(document.getElementById('pagination'))`
-      ${paginationRender({id: c, c: cacheChannels[c].f, max: cacheFiles[loading].fi[c].length - 1})}
+      ${paginationRender({id: c, c: cacheChannels[loading][c].f, max: cacheFiles[loading].fi[c].length - 1})}
     `
   })
   fReader.addEventListener('progress', renderProgressModal)
   fReader.addEventListener('loadend', () => {
     document.querySelector('.modal').classList.remove('is-active')
   })
-  fReader.readAsText(cacheFiles[loading].fi[c][cacheChannels[c].f].res)
+  fReader.readAsText(cacheFiles[loading].fi[c][cacheChannels[loading][c].f].res)
 }
 
 function renderChannels (c) {
-  loading = document.getElementById('guildname').dataset.l
   var type = c[0].ty ? 'ty' : 'type'
   var textChannels = c.filter(c => c[type] === 'text').sort((a, b) => {
     return (a.pos || a.position) - (b.pos || b.position)
@@ -254,7 +261,7 @@ function renderChannels (c) {
     <p class="menu-label">Text Channels</p>
     <ul class="menu-list">
       ${textChannels.map(c => hyper.wire()`
-        <li><a data-id="${c.i || c.id}" onclick=${loadChannel} >&#35; ${c.n || c.name} (${cacheFiles[loading].fi[c.i || c.id] ? (cacheFiles[loading].fi[c.i || c.id].length > 1 ? cacheFiles[loading].fi[c.i || c.id].length - 1 : '1') : '?'})</a></li>
+        <li><a data-id="${c.i || c.id}" onclick=${loadChannel} >&#35; ${c.n || c.name} (${cacheFiles[loading].fi[c.i || c.id] ? (cacheFiles[loading].fi[c.i || c.id].length > 0 ? cacheFiles[loading].fi[c.i || c.id].length : '1') : '?'})</a></li>
       `)}
     </ul>
     <p class="menu-label">Voice Channels</p>
@@ -267,6 +274,7 @@ function renderChannels (c) {
 }
 
 function loadGuild (i) {
+  console.log(i)
   var guildInfo = cacheFiles[i].f
   document.getElementById('channelname').innerHTML = ''
   document.getElementById('channeltopic').innerHTML = ''
@@ -287,9 +295,11 @@ function loadGuild (i) {
   document.getElementById('guildname').dataset.l = loading
   document.getElementById('members').querySelector('.menu-label').innerText = `Members - ${backwardsCompat.memberCount}`
   if (backwardsCompat.channels) {
+    loading = Number(i)
     document.querySelector('.column.is-narrow.is-paddingless.d-server-channels-bar.has-text-white').classList.remove('is-hidden')
     renderChannels(backwardsCompat.channels)
   } else {
+    loading = Number(i)
     document.querySelector('.column.is-narrow.is-paddingless.d-server-channels-bar.has-text-white').classList.add('is-hidden')
     loadChannel({ target: { dataset: { id: guildInfo.id || guildInfo.i } } })
   }
@@ -328,7 +338,7 @@ function loadGuildInfo (i) {
       icon: p.u || p.icon,
       name: p.n || p.name
     }
-    backwardsCompat.symbol = backwardsCompat.name ? backwardsCompat.name.substr(0, 2) : p.o.n.substr(0, 2)
+    backwardsCompat.symbol = p.a ? p.a : backwardsCompat.name ? backwardsCompat.name.substr(0, 2) : p.o.n.substr(0, 2)
     sideBarButtons.unshift({
       u: backwardsCompat.icon,
       n: backwardsCompat.name || p.o.n,
