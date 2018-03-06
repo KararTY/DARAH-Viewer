@@ -91,7 +91,13 @@ function memberRender (u, r) {
 }
 
 function paginationRender (p) {
-  console.log(p)
+  if (p.max === 0) {
+    document.getElementById('messages').style.height = 'calc(100vh - 48px)'
+    document.querySelector('.d-server-channel-messages-wrapper').nextElementSibling.classList.add('is-hidden')
+  } else {
+    document.getElementById('messages').style.height = 'calc(100vh - 144px)'
+    document.querySelector('.d-server-channel-messages-wrapper').nextElementSibling.classList.remove('is-hidden')
+  }
   return hyper.wire()`
     ${p.max > 3 ? hyper.wire()`
       <li>
