@@ -148,7 +148,7 @@ function loadMessages (p, m, u, r, scroll) {
       return (a.t || a.timestamp) - (b.t || b.timestamp)
     }).reverse().slice(p.i.i * 100, ((p.i.i * 100) + 100) < m.length ? ((p.i.i * 100) + 100) : undefined).reverse()
   }
-  console.log(p, cacheChannels, messages, scroll, messages.length, max)
+  console.log(p, messages, scroll, messages.length, max)
   if (messages.length > 0) {
     if ((p.i.i === 0) || p.w === 'below') {
       document.getElementById('messages').appendChild(hyper.wire()`
@@ -160,7 +160,7 @@ function loadMessages (p, m, u, r, scroll) {
       if (document.querySelectorAll('[data-set]').length > 1) document.getElementById('messages').scrollTop = p.s - (p.s - (p.s / 1.1))
       else if (p.i.i > 0) {
         console.log('No')
-        loadMessages({ i: { i: cacheChannels[loading][p.c].i - 1 }, c: p.c }, m, u, r)
+        loadMessages({ i: { i: cacheChannels[loading][p.i.f][p.c].i - 1, f: p.i.f }, c: p.c }, m, u, r)
       }
       if (document.querySelectorAll('[data-set]').length > 3) document.getElementById('messages').removeChild(document.getElementById('messages').firstChild)
     } else if (p.w === 'above') {
@@ -179,18 +179,18 @@ function loadMessages (p, m, u, r, scroll) {
           ${p.i.i > 0 ? hyper.wire()`<hr>` : ''}
         </div>
       `)
-      // document.getElementById('messages').scrollTop = cacheChannels[loading][p.c].w
+      // document.getElementById('messages').scrollTop = cacheChannels[loading][p.i.f][p.c].w
     }
     document.getElementById('messages').onscroll = null
     document.getElementById('messages').onscroll = () => {
       if (p.i.i < max && document.getElementById('messages').scrollTop === 0) {
-        cacheChannels[loading][p.c].i += 1
-        cacheChannels[loading][p.c].w = document.getElementById('messages').scrollTop
-        loadMessages({ i: { i: cacheChannels[loading][p.c].i }, c: p.c, w: 'above', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
-      } else if (cacheChannels[loading][p.c].i > 0 && document.getElementById('messages').scrollTop > document.getElementById('messages').scrollHeight / 1.1) {
-        cacheChannels[loading][p.c].i -= 1
-        cacheChannels[loading][p.c].w = document.getElementById('messages').scrollTop
-        if (!document.querySelector(`[data-set="${cacheChannels[loading][p.c].i}"]`)) loadMessages({ i: { i: cacheChannels[loading][p.c].i }, c: p.c, w: 'below', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
+        cacheChannels[loading][p.i.f][p.c].i += 1
+        cacheChannels[loading][p.i.f][p.c].w = document.getElementById('messages').scrollTop
+        loadMessages({ i: { i: cacheChannels[loading][p.i.f][p.c].i, f: p.i.f }, c: p.c, w: 'above', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
+      } else if (cacheChannels[loading][p.i.f][p.c].i > 0 && document.getElementById('messages').scrollTop > document.getElementById('messages').scrollHeight / 1.1) {
+        cacheChannels[loading][p.i.f][p.c].i -= 1
+        cacheChannels[loading][p.i.f][p.c].w = document.getElementById('messages').scrollTop
+        if (!document.querySelector(`[data-set="${cacheChannels[loading][p.i.f][p.c].i}"]`)) loadMessages({ i: { i: cacheChannels[loading][p.i.f][p.c].i, f: p.i.f }, c: p.c, w: 'below', s: document.getElementById('messages').scrollHeight }, m, u, r, true)
       }
     }
     if (p.i.i === 0 && !document.querySelector(`[data-set="1"]`)) document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight
@@ -199,12 +199,13 @@ function loadMessages (p, m, u, r, scroll) {
 
 function loadChannel (m = new MouseEvent()) {
   var c = m.target.dataset.id
-  var f = Number.isNaN(Number(m.target.dataset.f)) ? undefined : Number(m.target.dataset.f)
-  if (!cacheChannels[loading]) cacheChannels[loading] = {}
-  if (!cacheChannels[loading][c]) cacheChannels[loading][c] = { i: 0, f: 0 }
-  if (typeof f === 'number') cacheChannels[loading][c].f = f
+  var f = Number.isNaN(Number(m.target.dataset.f)) ? 0 : Number(m.target.dataset.f)
+  if (!cacheChannels[loading]) cacheChannels[loading] = []
+  if (!cacheChannels[loading][f]) cacheChannels[loading][f] = {}
+  if (!cacheChannels[loading][f][c]) cacheChannels[loading][f][c] = { i: 0, f: 0 }
+  if (typeof f === 'number') cacheChannels[loading][f][c].f = f
 
-  console.log(loading, c, f, cacheChannels[loading][c], cacheFiles[loading].fi[c])
+  console.log(loading, c, f, cacheChannels[loading][f][c], cacheFiles[loading].fi[c])
   var fReader = new FileReader()
   fReader.addEventListener('load', json => {
     var p = JSON.parse(json.target.result)
@@ -226,9 +227,9 @@ function loadChannel (m = new MouseEvent()) {
     else document.getElementById('channeltopic').classList.remove('is-hidden')
 
     document.getElementById('messages').innerHTML = ''
-    // cacheChannels[loading][c].i--
-    console.log(cacheChannels[loading][c].i)
-    loadMessages({i: cacheChannels[loading][c], c}, backwardsCompat.m, backwardsCompat.u, backwardsCompat.r)
+    // cacheChannels[loading][f][c].i--
+    console.log(cacheChannels[loading][f][c].i)
+    loadMessages({i: cacheChannels[loading][f][c], c}, backwardsCompat.m, backwardsCompat.u, backwardsCompat.r)
 
     document.getElementById('members').querySelector('.menu-list').classList.remove('is-hidden')
     hyper.bind(document.getElementById('members').querySelector('.menu-list'))`
@@ -239,14 +240,14 @@ function loadChannel (m = new MouseEvent()) {
 
     document.getElementById('pagination').classList.remove('is-hidden')
     hyper.bind(document.getElementById('pagination'))`
-      ${paginationRender({id: c, c: cacheChannels[loading][c].f, max: cacheFiles[loading].fi[c].length - 1})}
+      ${paginationRender({id: c, c: cacheChannels[loading][f][c].f, max: cacheFiles[loading].fi[c].length - 1})}
     `
   })
   fReader.addEventListener('progress', renderProgressModal)
   fReader.addEventListener('loadend', () => {
     document.querySelector('.modal').classList.remove('is-active')
   })
-  fReader.readAsText(cacheFiles[loading].fi[c][cacheChannels[loading][c].f].res)
+  fReader.readAsText(cacheFiles[loading].fi[c][cacheChannels[loading][f][c].f].res)
 }
 
 function renderChannels (c) {
