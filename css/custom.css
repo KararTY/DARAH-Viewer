@@ -1,0 +1,41 @@
+#sidebar {
+  height: 100vh;
+}
+#sidebar .icon {
+  height: 32px;
+  width: 32px;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: white;
+  margin: 0.3rem;
+  border: none;
+}
+#sidebar .icon:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+.navbar.is-dark .navbar-brand>a.navbar-item[href] {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.navbar.is-dark .navbar-brand>a.navbar-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+#chatmembers {
+  background-color: rgba(0, 0, 0, 0.05)
+}
+aside.menu {
+  margin-left: .75rem;
+}
+.placeholder-load-me:after {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 0.9rem;
+  background-color: #000;
+  color: #fff;
+  content: "Load me"
+}
+#chat {
+  word-break: break-word;
+}
+.is-32x32 img {
+  height: 32px;
+}
