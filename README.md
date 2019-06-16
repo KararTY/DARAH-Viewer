@@ -1,16 +1,15 @@
-# S.A.R.A.H. Viewer - [Server Auto Record Archiver Heroine](https://github.com/kararty/ServerAutoRecordArchiverHeroine)
-## View S.A.R.A.H. archives in a familiar UI.
-### Don't want to download it? [Click here.](https://kararty.github.io/SARAH/Viewer.html)
+# D.A.R.A.H. Viewer
+## Original project: [Discord Auto Record Archiver Heroine](https://github.com/kararty/DiscordAutoRecordArchiverHeroine)
+Upload an entire Darah ZIP file and browse through the archive, easily and effortlessly, using this HTML/CSS/JS GUI.
 
-### NOTE: This HTML Viewer is still in early development!
-Browse through archives with ease using this HTML GUI specifically designed for the S.A.R.A.H. archive format.
-
-Upload an entire S.A.R.A.H. ZIP file and browse through ALL of the archives, easily and effortlessly.
+### Don't want to download the viewer?
+[Click here](https://kararty.github.io/SARAH/Viewer.html) to upload and view your archive online.
 
 ### Support
-  *  S.A.R.A.H. version 3.5.X
+  *  D.A.R.A.H. version 4.X.X
 
 ### Contributing
-Fork project & Send a pull request. Use eslint & the provided eslint file, thanks.
+Fork project & send a pull request. **Use eslint.**
 
-### License MIT Karar Al-Remahy
+### License MIT
+https://alremahy.com/ Karar Al-Remahy
