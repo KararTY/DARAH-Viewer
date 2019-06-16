@@ -3,7 +3,15 @@
  * IMPLEMENT: Message searching.
  */
 
-let licenses = `<h3>DARAH Viewer</h3>
+let licenses = `<h3>Licenses</h3>
+<ul>
+  <li><a href="#darah-viewer">DARAH Viewer - MIT License - Karar Al-Remahy</a></li>
+  <li><a href="#lighterhtml">lighterhtml - ISC License - Andrea Giammarchi, @WebReflection</a></li>
+  <li><a href="#jszip">JSZip - MIT License - Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso</a></li>
+  <li><a href="#moment">Moment - MIT License - JS Foundation and other contributors</a></li>
+</ul>
+<hr id="darah-viewer">
+<h3>DARAH Viewer</h3>
 <h4>MIT License</h4>
 <p>Copyright (c) 2019 Karar Al-Remahy</p>
 <p>Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,7 +29,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</p>
-<hr>
+<hr id="lighterhtml">
 <h3>lighterhtml</h3>
 <h4>ISC License</h4>
 <p>Copyright (c) 2019, Andrea Giammarchi, @WebReflection</p>
@@ -35,7 +43,7 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
 OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.</p>
-<hr>
+<hr id="jszip">
 <h3>JSZip</h3>
 <h4>MIT License</h4>
 <p>Copyright (c) 2009-2016 Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso</p>
@@ -56,7 +64,7 @@ HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
 WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.</p>
-<hr>
+<hr id="moment">
 <h3>Moment</h3>
 <h4>MIT License</h4>
 <p>Copyright (c) JS Foundation and other contributors</p>
@@ -164,11 +172,12 @@ function abortZIPFile (num) {
 
 /**
  * Check if the archive exists in the cache.
- * @param {Number} i
- * @returns {Object}
+ * @param {Number} i Archive
+ * @returns {Object} Reference to cached data.
  */
 function archiveCheckExists (i) {
   i = Number(i)
+
   if (cachedFiles[i]) return cachedFiles[i]
   else {
     let error = new Error("That archive doesn't exist. Maybe deleted?")
@@ -186,7 +195,7 @@ function toggleMessageModal () {
     document.getElementById('message').outerHTML = ''
   } else {
     let message = messages.splice(0, 1)[0] // Remove from storage.
-    console.log(message.body || message)
+    console.log(message.body || message.replace(/<[\w/ "-=]+>/gm, ''))
     document.getElementById('modals').appendChild(html`
       <div class="modal is-active" id="message">
         <div class="modal-background" onclick="${message.deny || toggleMessageModal}"></div>
@@ -267,7 +276,7 @@ function messageInfoModal () {
   } else {
     let archive = archiveCheckExists(this.dataset.i).fileList
     let channel = archive.channels[Number(this.dataset.c)]
-    let messages = channel.messageFiles[Number(this.dataset.f)].m.reverse()
+    let messages = channel.messageFiles[Number(this.dataset.f)].m
     let message = messages[Number(this.dataset.ind)]
     document.getElementById('modals').appendChild(html`
       <div class="modal is-active" id="messageinfo">
@@ -275,6 +284,16 @@ function messageInfoModal () {
         <div class="modal-card">
           <div class="modal-card-body">
             <div class="content">
+              <strong>Date: </strong> <span title="${new Date(message.t)}">${new Date(message.t).toLocaleString()}</span>
+              <br><strong>By: </strong> <span title="${message.u}"><a onclick="${memberInfoModal}" data-i="${this.dataset.i}" data-ind="${message.u}">${archive.generalData.usersInfo[message.u].tg || message.u}</a></span>
+              <br><strong>ID: </strong> <span>${message.i}</span>
+              ${message.c.m.length > 0 ? html`
+                <br><strong>Message: </strong>
+                <br><pre>${JSON.stringify(message.c.m)}</pre>
+              ` : undefined}
+              ${message.c.a ? message.c.a.map((attachment, ind) => html`
+                <br>${'Attachment ' + ind + ': ' + attachment.i}
+              `) : undefined}
               <pre>${JSON.stringify(message, null, 2)}</pre>
             </div>
           </div>
@@ -286,33 +305,263 @@ function messageInfoModal () {
 }
 
 /**
+ * Renders message embeds.
+ * @param {Number} i Archive index.
+ * @param {Object} msg Message object.
+ * @returns {[DocumentFragment]} Document fragments.
+ */
+function messageEmbedRenderer (i, msg) {
+  return msg.c.e.map(embed => html`
+    <div class="box" style="padding:.75rem 0;">
+      <div class="columns" style="padding:0 0.75rem;">
+        <div class="column is-paddingless is-1" style="${'width:10px;' + 'background-color:' + (embed.c || '#4f545c')}"></div>
+        ${(embed.a || embed.ti || embed.d || embed.f || embed.i || embed.fo) ? html`
+          <div class="column">
+            ${embed.a ? html`
+              ${embed.a.a ? html`
+                <span class="icon is-small">
+                  <img src="${embed.a.a}">
+                </span>
+              ` : undefined}
+              ${embed.a.n ? (embed.a.u ? html`
+                <small> <strong> <a href="${embed.a.u}" target="_blank"> ${embed.a.n}</a></strong></small>
+              ` : html`
+                <small> <strong> ${embed.a.n}</strong></small>
+              `) : undefined}
+            ` : undefined}
+            ${embed.ti ? (embed.u ? html`${embed.a ? html`<br>` : undefined}<strong><a href="${embed.u}" target="_blank">${embed.ti}</a></strong>` : html`${embed.a ? html`<br>` : undefined}<strong>${embed.ti}</strong>`) : undefined}
+            ${embed.d ? html`${(embed.ti || embed.a) ? html`<br>` : undefined}<span style="white-space:pre-wrap;">${messageParser(i, embed.d, 'md')}</span>` : undefined}
+            ${embed.f ? html`
+              ${embed.f.map(field => html`
+                <div class="${`column is-paddingless${field.l ? '' : ' is-12'}`}">
+                  ${field.n ? html`<strong>${messageParser(i, field.n)}</strong>${field.v ? html`<br>` : undefined}` : undefined}
+                  ${field.v ? html`${messageParser(i, field.v, 'md')}` : undefined}
+                </div>
+              `)}
+            ` : undefined}
+            ${embed.i ? html`
+              <figure class="image">
+                <img src="${embed.i}">
+              </figure>
+            ` : undefined}
+            ${embed.fo ? html`
+              ${(embed.ti || embed.a || embed.d) && !embed.f ? html`<br>` : undefined}
+              ${embed.fo.u ? html`
+                <span class="icon is-small">
+                  <img src="${embed.fo.u}">
+                </span>
+              ` : undefined}
+              ${embed.fo.v ? html`
+                <small>${embed.fo.v}</small>
+              ` : undefined}
+              ${typeof embed.t === 'number' ? html`
+                <span> &bull; </span> <small title="${new Date(embed.t)}">${new Date(embed.t).toLocaleString()}</small>
+              ` : undefined}
+            ` : undefined}
+          </div>
+        ` : undefined}
+        ${embed.th ? html`
+          <div class="${'column' + ((embed.a || embed.ti || embed.d || embed.f || embed.i || embed.fo) ? ' is-narrow' : '')}">
+            <figure class="${'image' + ((embed.a || embed.ti || embed.d || embed.f || embed.i || embed.fo) ? ' is-128' : '')}">
+              <img src="${embed.th}">
+            </figure>
+          </div>
+        ` : undefined}
+      </div>
+    </div>
+  `)
+}
+
+/**
+ * Load the emoji.
+ * @param {{ i: Number, ind: Number }} data
+ */
+function emojiconLoader (data) {
+  if (data instanceof MouseEvent) data.stopPropagation()
+  let element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
+  let i = element ? Number(element.dataset.i) : data.i
+  let ind = element ? Number(element.dataset.ind) : data.ind
+  let archive = archiveCheckExists(i).fileList
+  let emoji = archive.generalData.emojisInfo[ind]
+  if (archive.generalData.emojis.length > 0) {
+    let regex = new RegExp(`Downloads/Emojis/${ind}(\\.png$|\\.jpg$|\\.gif$)`)
+    let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regex))
+    if (compressedEmojiIndex > -1) {
+      let emoji = archive.generalData.emojis[compressedEmojiIndex]
+      if (emoji.async) {
+        emoji.async('base64').then(res => {
+          archive.generalData.emojis[compressedEmojiIndex] = {
+            name: emoji.name,
+            data: `data:image/${res + emoji.name.split('.')[1]};base64,${res}`
+          }
+          element.src = archive.generalData.emojis[compressedEmojiIndex].data
+        })
+      } else element.src = emoji.data
+    }
+  } else element.src = emoji.u
+}
+
+function emojiconRender (i, eID) {
+  let archive = archiveCheckExists(i).fileList
+  let emoji = archive.generalData.emojisInfo[eID]
+  return (emoji ? `<span class="icon is-small" title="${emoji.n}"><img src=" " data-i="${i}" data-ind="${eID}" data-e="lorem"></span>` : undefined) || `:${eID}:`
+}
+
+/**
+ * Render reactions.
+ * @param {*} i Archive index.
+ * @param {Object} msg Message object.
+ * @returns {[DocumentFragment]}
+ */
+function messageReactionsRenderer (i, msg) {
+  let archive = archiveCheckExists(i).fileList
+  let emojis = archive.generalData.emojisInfo
+  return html`
+    <div class="field is-grouped is-grouped-multiline">
+      ${msg.c.r.map(r => html`
+        <div class="control">
+          <div class="tags has-addons">
+            <span class="tag">${r.c}</span>
+            <span class="tag">${emojis[r.d].d.startsWith('%') ? emojis[r.d].n : html`<span class="icon is-small"><img src=" " data-i="${i}" data-ind="${r.d}" onerror="${emojiconLoader}"></span>`}</span>
+          </div>
+        </div>
+      `)}
+    </div>
+  `
+}
+
+/**
+ * Parses the message content with relevant information.
+ * @param {Number} i Archive index.
+ * @param {String} msgC Message content.
+ * @return {String}
+ */
+function messageParser (i, msgC, type) {
+  let archive = archiveCheckExists(i).fileList
+
+  msgC = msgC.replace(/</g, '&lt;')
+  msgC = msgC.replace(/>/g, '&gt;')
+  msgC = msgC.replace(/\//g, '&#47;')
+  msgC = msgC.replace(/\\/g, '&#92;')
+
+  let users = msgC.match(/&lt;@[0-9]+&gt;/g)
+  if (users) {
+    users.forEach(u => {
+      let uID = Number(u.replace(/[^0-9]/g, ''))
+      if (archive.generalData.usersInfo[uID]) msgC = msgC.replace(u, `<a data-i="${i}" data-ind="${uID}" data-u="lorem">@${archive.generalData.usersInfo[uID].n || uID}</a>`)
+      else msgC = msgC.replace(u, '&lt;@unknown-user&gt;')
+    })
+  }
+  let channels = msgC.match(/&lt;#[0-9]+&gt;/g)
+  if (channels) {
+    channels.forEach(c => {
+      let cID = Number(c.replace(/[^0-9]/g, ''))
+      if (archive.generalData.channels.c[cID]) msgC = msgC.replace(c, `<a data-i="${i}" data-ind="${cID}" data-c="lorem">#${archive.generalData.channels.c[cID].n || cID}</a>`)
+      else msgC = msgC.replace(c, '&lt;#unknown-channel&gt;')
+    })
+  }
+  let emoji = msgC.match(/&lt;?:[0-9]+:&gt;?/g)
+  if (emoji) {
+    emoji.forEach(e => {
+      let eID = Number(e.replace(/[^0-9]/g, ''))
+      msgC = msgC.replace(e, emojiconRender(i, eID))
+    })
+  }
+  let roles = msgC.match(/&lt;&[0-9]+&gt;/g)
+  if (roles) {
+    roles.forEach(r => {
+      let rID = Number(r.replace(/[^0-9]/g, ''))
+      if (archive.generalData.rolesInfo[rID]) msgC = msgC.replace(r, `<a data-i="${i}" data-po="${archive.generalData.rolesInfo[rID].po}" data-r="lorem"><span style="color:${getRoleColor({ i, ind: rID })};">@${archive.generalData.rolesInfo[rID].n}</span></a>`)
+      else msgC = msgC.replace(r, '&lt;#unknown-role&gt;')
+    })
+  }
+
+  // Modified Koen Vendrik's https://codepen.io/kvendrik/pen/Gmefv
+  // ~~ Strike-through ~~
+  msgC = msgC.replace(/[~]{2}([^~]+)[~]{2}/g, '<del>$1</del>')
+  // ** Strong **
+  msgC = msgC.replace(/[*]{2}([^*]+)[*]{2}/g, '<strong>$1</strong>')
+  // __ Underline __
+  msgC = msgC.replace(/[_]{2}([^_]+)[_]{2}/g, '<ins>$1</ins>')
+  // * Italic *
+  msgC = msgC.replace(/[*]{1}([^*]+)[*]{1}/g, '<i>$1</i>')
+  // _ Italic _
+  // msgC = msgC.replace(/[_]{1}([^_]+)[_]{1}/g, '<i>$1</i>')
+  // *** Italic & Strong ***
+  // msgC = msgC.replace(/[*]{3}([^*]+)[*]{3}/g, '<strong><i>$1</i></strong>')
+  // `` Triple ticks ```
+  msgC = msgC.replace(/```([^`]*)```\s*/gm, '<pre class="is-marginless">$1</pre>\n')
+  // ` One tick `
+  msgC = msgC.replace(/[`]{1}([^`]+)[`]{1}/g, '<code>$1</code>')
+  /* TODO */
+  // || Spoiler tags ||
+
+  // If type exists and is 'md', for markdown for use in embeds.
+  if (type && type === 'md') {
+    msgC = msgC.replace(/[[]{1}([^\]]+)[\]]{1}[(]{1}([^)"]+)("(.+)")?[)]{1}/g, '<a href="$2" title="$4" target="_blank">$1</a>')
+  }
+
+  // Magic!
+  msgC = html`${{ html: msgC }}`
+
+  msgC.querySelectorAll('[data-i]').forEach(el => {
+    if (el.dataset.u) {
+      el.onclick = memberInfoModal
+      el.removeAttribute('data-u')
+    } else if (el.dataset.c) {
+      el.onclick = loadChannel
+      el.removeAttribute('data-c')
+    } else if (el.dataset.e) {
+      el.onerror = emojiconLoader
+      el.removeAttribute('data-e')
+    } else if (el.dataset.r) {
+      el.onclick = roleInfoModal
+      el.removeAttribute('data-r')
+    }
+  })
+  return msgC
+}
+
+/**
  * Load the channel's chat
  * @param {{ i: Number, c: Number, f: Number, msgCount: Number }} data
  */
 function loadChat (data) {
-  let archive = archiveCheckExists(data.i).fileList
-  let channel = archive.channels[data.c]
-  let messages = channel.messageFiles[data.f].m.reverse()
+  document.getElementById('chat').innerHTML = ''
+  let i = typeof data.i === 'number' ? data.i : Number(this.dataset.i)
+  let c = typeof data.c === 'number' ? data.c : Number(this.dataset.c)
+  let f = typeof data.f === 'number' ? data.f : Number(this.dataset.f)
+  let msgCount = typeof data.msgCount === 'number' ? data.msgCount : Number(this.dataset.msgcount)
+
+  let archive = archiveCheckExists(i).fileList
+  let channel = archive.channels[c]
+  let messages = channel.messageFiles[f].m.slice(msgCount, (msgCount + 100)).reverse()
   let messageContainer = html`
-    ${messages.slice(data.msgCount, 100).map((msg, ind) => html`
+    ${channel.messageFiles[f].m.length - (msgCount + 100) > 0 ? html`<p class="has-text-centered"><a class="button" data-i="${i}" data-c="${c}" data-f="${f}" data-msgcount="${msgCount + 100}" onclick="${loadChat}">Load older...</a></p>` : undefined}
+    ${messages.map((msg, ind, arr) => html`
       <div class="media">
         <div class="media-left">
           <figure class="image is-32x32">
-            <img class="is-rounded placeholder-load-me" alt="." data-i="${data.i}" data-ind="${msg.u}" onclick="${userImage}">
+            <img class="is-rounded placeholder-load-me" alt="." data-i="${i}" data-ind="${msg.u}" onclick="${userImageLoader}">
           </figure>
         </div>
         <div class="media-content content">
-          <a onclick="${memberInfoModal}" data-i="${data.i}" data-ind="${msg.u}"><strong title="${archive.generalData.usersInfo[msg.u].tg}" style="${'color:' + getRoleColor({i: data.i, ind: getUserRoles({ i: data.i, ind: msg.u })[getUserRoles({ i: data.i, ind: msg.u }).length - 1]}) + ';'}">${archive.generalData.usersInfo[msg.u].n}</strong></a>
+          <a onclick="${memberInfoModal}" data-i="${i}" data-ind="${msg.u}"><strong title="${archive.generalData.usersInfo[msg.u].tg}" style="${'color:' + getTopUserRole({ i, ind: msg.u }).c + ';'}">${archive.generalData.usersInfo[msg.u].n}</strong></a>
           <small title="${new Date(msg.t).toLocaleString() + (msg.e ? ', edited ' + new Date(msg.e).toLocaleString() : '')}">${moment(msg.t).fromNow()} ${msg.e ? `(edited)` : undefined}</small>
-          <a class="button is-light is-pulled-right" onclick="${messageInfoModal}" data-i="${data.i}" data-c="${data.c}" data-f="${data.f}" data-ind="${data.msgCount + ind}">≡</a>
-          <br>
-          <span style="white-space:pre-wrap;">${msg.c.m}</span>
+          <a class="button is-light is-pulled-right" onclick="${messageInfoModal}" data-i="${i}" data-c="${c}" data-f="${f}" data-ind="${msgCount + ((arr.length > 0 ? arr.length - 1 : 0) - ind)}">≡</a>
+          <p>
+            <span style="white-space:pre-wrap;">${messageParser(i, msg.c.m)}</span>
+          </p>
+          ${msg.c.e ? html`${messageEmbedRenderer(i, msg)}` : undefined}
+          ${msg.c.r ? html`${messageReactionsRenderer(i, msg)}` : undefined}
         </div>
       </div>
     `)}
     <hr>
-    `
+    ${msgCount > 1 ? html`<p class="has-text-centered"><a class="button" data-i="${i}" data-c="${c}" data-f="${f}" data-msgcount="${msgCount - 100}" onclick="${loadChat}" data-scroll="down">Load newer...</a></p>` : undefined}
+  `
   document.getElementById('chat').appendChild(messageContainer)
+  document.getElementById('chat').scrollTo(document.getElementById('chat').scrollWidth, (this.dataset && this.dataset.scroll === 'down') ? 0 : document.getElementById('chat').scrollTop + 9999)
 }
 
 /**
@@ -340,6 +589,7 @@ function loadChannel () {
       if (channel.messageFiles[f].async) {
         channel.messageFiles[f].async('string').then(res => {
           channel.messageFiles[f] = JSON.parse(res)
+          // cachedFiles[i].fileList.channels[channelIndex].messageFiles[f].m = channel.messageFiles[f].m.reverse()
           loadingModal(false)
           loadChat({ i, f: channel.selectedSplit, c: channelIndex, msgCount: channel.msgCount ? channel.msgCount[f] : 0 })
         })
@@ -359,6 +609,12 @@ function loadChannel () {
 function channelsList (i) {
   let archive = archiveCheckExists(i).fileList
   let parentChannels = archive.generalData.channels.p.filter((v, i, a) => a.map(i => i.i).indexOf(v.i) === i)
+  parentChannels = parentChannels.map((pc, ind) => {
+    return {
+      ...pc,
+      chs: archive.generalData.channels.c.filter(c => c.pa === ind).sort((a, b) => a.po - b.po)
+    }
+  }).sort((a, b) => a.po - b.po)
   return html`
     <aside class="menu">
       <ul class="menu-list">
@@ -368,11 +624,53 @@ function channelsList (i) {
       ${parentChannels.map((pc, ind) => html`
         <label class="menu-label">${pc.n}</label>
         <ul class="menu-list">
-          ${archive.generalData.channels.c.filter(c => c.pa === ind).sort((a, b) => a.po - b.po).map(c => html`<li><a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a></li>`)}
+          ${pc.chs.map(c => html`<li><a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a></li>`)}
         </ul>
       `)}
     </aside>
   `
+}
+
+/**
+ * Show role info modal.
+ * @param {{ i: Number, po: Number }} data
+ */
+function roleInfoModal () {
+  let i = Number(this.dataset.i)
+  if (typeof i === 'number') {
+    if (document.getElementById('roleinfo')) {
+      document.getElementById('roleinfo').outerHTML = ''
+    } else {
+      let archive = archiveCheckExists(i).fileList
+      let role = archive.generalData.rolesInfo.find(r => r.po === Number(this.dataset.po))
+      document.getElementById('modals').appendChild(html`
+      <div class="modal is-active" id="roleinfo">
+        <div class="modal-background" onclick="${roleInfoModal}"></div>
+        <div class="modal-card">
+          <div class="modal-card-body">
+            <div class="content">
+              <h2 class="title has-text-centered">Role information</h2>
+              <h3 class="subtitle has-text-centered">${role.n}</h3>
+              <p>
+                <strong>ID: </strong> <span>${role.i}</span>
+                <br><strong>Created: </strong> <span title="${new Date(role.t)}">${new Date(role.t).toLocaleString()}</span>
+                ${role.c !== '#000000' ? html`
+                  <br><strong>Color: </strong> <code>${role.c}</code>
+                  <br><strong style="${'color:' + role.c + ';'}">Color example: The quick brown fox jumps over the lazy dog!</strong>
+                ` : undefined}
+                <br><strong>Total members: </strong> <span>${role.m}</span>
+                ${role.h ? html`<br><strong>Hoisted: </strong> <span>${role.h}</span>` : undefined}
+                ${role.mg ? html`<br><strong>Managed: </strong> <span>${role.mg}</span>` : undefined}
+                ${role.me ? html`<br><strong>Mentionable: </strong> <span>${role.me}</span>` : undefined}
+                <br><strong>Permissions: </strong> <span>${role.p}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      `)
+    }
+  }
 }
 
 /**
@@ -400,17 +698,30 @@ function guildInfoModal () {
                 <p>
                   ${guild.info.i ? html`<strong>ID: </strong> <span>${guild.info.i}</span><br>` : undefined}
                   <strong>Region: </strong> <span>${guild.info.re.replace('-', ' ').toUpperCase()}</span><br>
-                  <strong>Created: </strong> <span title="${new Date(guild.info.t)}">${new Date(guild.info.t).toLocaleString()}.</span><br>
+                  <strong>Created: </strong> <span title="${new Date(guild.info.t)}">${new Date(guild.info.t).toLocaleString()}</span><br>
                   ${guild.info.o ? html`<strong>Owner: </strong> <a onclick="${memberInfoModal}" data-ind="${archive.generalData.usersInfo.findIndex(u => u.i === guild.info.o)}" data-i="${i}">${archive.generalData.usersInfo.find(u => u.i === guild.info.o).tg || guild.info.o}</a><br>` : undefined}
                   <strong>Total members: </strong> <span>${guild.info.m}</span><br>
                   ${guild.info.l ? html`<strong>Server is considered large by Discord.</strong><br>` : undefined}
                   <strong>Explicit content level: </strong> <span>${guild.info.e}</span><br>
                   <strong>Verification level: </strong> <span>${guild.info.v}</span><br>
+                  <strong title="Sorted by position, from highest to lowest.">Roles (${archive.generalData.rolesInfo.length} total):</strong>
+                  <span class="tags is-marginless">
+                    ${[...archive.generalData.rolesInfo].sort((a, b) => b.po - a.po).map(r => html`<span class="tag" title="${'Created ' + new Date(r.t).toLocaleString() + '.\nID: ' + r.i}"><a data-i="${i}" data-po="${r.po}" onclick="${roleInfoModal}" style="${'color:' + r.c + ';'}">${r.n}</a></span>`)}
+                  </span>
                   ${guild.info.em && guild.info.em.length > 0 ? html`
-                    <strong>Emojis in guild: </strong> <span>${guild.info.em.length}</span><br>
-                    <strong>Emojis: </strong>
-                    ${guild.info.em.map(e => html`<span class="tag">${e.n}</span> <span> </span>`)}
+                    <strong>Emojis (${guild.info.em.length} total):</strong>
+                    <span class="field is-grouped is-grouped-multiline">
+                      ${guild.info.em.map(e => html`
+                        <span class="control">
+                          <span class="tags has-addons" title="${'Created ' + new Date(e.t).toLocaleString() + '.\nID: ' + e.i}">
+                            <span class="tag">${e.n}</span>
+                            <span class="tag"><span class="icon is-small"><img src=" " data-i="${i}" data-ind="${archive.generalData.emojisInfo.findIndex(eI => eI.n === e.n)}" onerror="${emojiconLoader}"></span></span>
+                          </span>
+                        </span>
+                      `)}
+                    </span>
                   ` : undefined}
+                  ${guild.info.af && guild.info.af.e ? html`<strong>AFK timeout: </strong> <span>${moment.duration({ seconds: guild.info.af.t }).humanize()}.</span>` : undefined}
                 </p>
               </div>
             </div>
@@ -420,6 +731,19 @@ function guildInfoModal () {
       `)
     }
   }
+}
+
+/**
+ * Get the top user role.
+ * @param {{ i: Number, ind: Number }} data
+ * @returns {Object}
+ */
+function getTopUserRole (data) {
+  let archive = archiveCheckExists(data.i).fileList
+  let roles = archive.generalData.usersInfo[data.ind].r
+  if (!roles) roles = [archive.generalData.rolesInfo.findIndex(r => r.n === '@everyone')]
+  if (roles) roles = roles.map(r => archive.generalData.rolesInfo[r])
+  return [...roles].sort((a, b) => b.po - a.po).shift()
 }
 
 /**
@@ -462,13 +786,13 @@ function memberInfoModal () {
         <div class="modal-card">
           <div class="modal-card-body">
             <figure class="image container is-128x128">
-              <img class="is-rounded" src=" " data-i="${i}" data-ind="${ind}" onerror="${userImage}">
+              <img class="is-rounded" src=" " data-i="${i}" data-ind="${ind}" onerror="${userImageLoader}">
             </figure>
             <div class="content">
               <h3 class="has-text-centered">${user.tg}</h3>
               ${user.b ? html`<strong>Bot account</strong><br>` : undefined}
               <strong>ID: </strong><span>${user.i}</span><br>
-              <strong>Roles: </strong>${getUserRoles({ i, ind }).map(i => archive.generalData.rolesInfo[i]).map(r => html`<span class="tag is-light" style="${'color:' + r.c + ';'}">${r.n}</span><span> </span>`)}<br>
+              <strong>Roles: </strong><div class="tags is-marginless">${[...getUserRoles({ i, ind }).map(i => archive.generalData.rolesInfo[i])].sort((a, b) => b.po - a.po).map(r => html`<span class="tag is-light"><a data-i="${i}" data-po="${r.po}" onclick="${roleInfoModal}" style="${'color:' + r.c + ';'}">${r.n}</a></span>`)}</div>
               ${user.j ? html`<strong>Joined: </strong><span title="${new Date(user.j)}">${new Date(user.j).toLocaleString()}</span><br>` : undefined}
               ${user.t ? html`<strong>Created: </strong><span title="${new Date(user.t)}">${new Date(user.t).toLocaleString()}</span>` : undefined}
             </div>
@@ -484,7 +808,7 @@ function memberInfoModal () {
  * Load the user image.
  * @param {{ i: Number, ind: Number }} data
  */
-function userImage (data) {
+function userImageLoader (data) {
   if (data instanceof MouseEvent) data.stopPropagation()
   let element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
   let i = element ? Number(element.dataset.i) : data.i
@@ -529,7 +853,7 @@ function membersList (i) {
               <a data-i=${i} data-ind="${u.ind}" onclick="${memberInfoModal}">
                 <div class="level is-mobile">
                   <div class="level-left">
-                    <figure onclick=${userImage} class="level-item image is-32x32">
+                    <figure onclick=${userImageLoader} class="level-item image is-32x32">
                       <img class="is-rounded placeholder-load-me" alt="." data-i="${i}" data-ind="${u.ind}">
                     </figure>
                     <span style="${'color:' + r.c + ';'}">${u.n ? (u.n.length > 16 ? u.n.substr(0, 16) + '...' : u.n) : '?'}</span>
@@ -586,7 +910,7 @@ function loadSelectedTypes (e) {
   let selectedLoadMisc = []
   for (let ind = 0; ind < form.elements.length; ind++) {
     const e = form.elements[ind]
-    if (!e.checked) return
+    if (!e.checked) continue
     switch (e.name) {
       case 'include':
         selectedChannels.push({ po: Number(e.dataset.i), split: e.dataset.split })
@@ -1002,6 +1326,7 @@ function toggleErrorModal () {
   } else {
     let error = errors.splice(0, 1)[0] // Remove from storage.
     console.error(error)
+    document.getElementById('loader').outerHTML = ''
     document.getElementById('modals').appendChild(html`
       <div class="modal is-active" id="error">
         <div class="modal-background" onclick="${toggleErrorModal}"></div>

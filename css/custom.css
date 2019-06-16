@@ -39,3 +39,9 @@ aside.menu {
 .is-32x32 img {
   height: 32px;
 }
+.content pre {
+  white-space: pre-wrap;
+}
+.image.is-128 {
+  width: 128px;
+}
