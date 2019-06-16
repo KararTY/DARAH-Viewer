@@ -549,9 +549,7 @@ function loadChat (data) {
           <a onclick="${memberInfoModal}" data-i="${i}" data-ind="${msg.u}"><strong title="${archive.generalData.usersInfo[msg.u].tg}" style="${'color:' + getTopUserRole({ i, ind: msg.u }).c + ';'}">${archive.generalData.usersInfo[msg.u].n}</strong></a>
           <small title="${new Date(msg.t).toLocaleString() + (msg.e ? ', edited ' + new Date(msg.e).toLocaleString() : '')}">${moment(msg.t).fromNow()} ${msg.e ? `(edited)` : undefined}</small>
           <a class="button is-light is-pulled-right" onclick="${messageInfoModal}" data-i="${i}" data-c="${c}" data-f="${f}" data-ind="${msgCount + ((arr.length > 0 ? arr.length - 1 : 0) - ind)}">≡</a>
-          <p>
-            <span style="white-space:pre-wrap;">${messageParser(i, msg.c.m)}</span>
-          </p>
+          <p class="is-marginless" style="white-space:pre-wrap;">${messageParser(i, msg.c.m)}</p>
           ${msg.c.e ? html`${messageEmbedRenderer(i, msg)}` : undefined}
           ${msg.c.r ? html`${messageReactionsRenderer(i, msg)}` : undefined}
         </div>
