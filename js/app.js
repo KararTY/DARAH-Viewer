@@ -1,5 +1,5 @@
 /**
- * TODO: FINISH MESSAGE LOADING.
+ * TODO: ATTACHMENTS LOADING.
  * IMPLEMENT: Message searching.
  */
 
@@ -99,15 +99,21 @@ const cachedFiles = []
 
 /**
  * Storage for errors.
- * [{ name: String, message: String, code?: Number, stack?: String }...]
+ ** [{ name: String, message: String, code?: Number, stack?: String }...]
  */
 const errors = []
 
 /**
  * Storage for message nodes.
- * [{ title: String, body: String, deny?: Function, accept?: Function }]
+ ** [{ title: String, body: String, deny?: Function, accept?: Function }...]
  */
 const messages = []
+
+/**
+ * Storage for content blobs.
+ * [{ "positionInCachedFiles": [Blob, ...] }]
+ */
+const loadedContent = {}
 
 /**
  * Initializes the layout of the application.
@@ -182,7 +188,7 @@ function archiveCheckExists (i) {
   else {
     let error = new Error("That archive doesn't exist. Maybe deleted?")
     errors.push(error)
-    toggleErrorModal()
+    errorModal()
     throw error
   }
 }
@@ -196,7 +202,7 @@ function toggleMessageModal () {
   } else {
     let message = messages.splice(0, 1)[0] // Remove from storage.
     console.log(message.body || message.replace(/<[\w/ "-=]+>/gm, ''))
-    document.getElementById('modals').appendChild(html`
+    let htmlContent = html`
       <div class="modal is-active" id="message">
         <div class="modal-background" onclick="${message.deny || toggleMessageModal}"></div>
         <div class="modal-card">
@@ -219,7 +225,9 @@ function toggleMessageModal () {
         </div>
         <a class="modal-close" onclick="${message.deny || toggleMessageModal}"></a>
       </div>
-    `)
+    `
+    if (document.getElementById('message')) render(document.getElementById('message'), () => htmlContent)
+    else document.getElementById('modals').appendChild(htmlContent)
   }
 }
 
@@ -253,9 +261,9 @@ function channelSettingsModal () {
                   <br><strong>Current split message count: </strong> <span>${channel.messageFiles[channel.selectedSplit].m.length} messages.</span>
                   ${channel.images.length > 0 ? html`<br><strong>Image count: </strong> <span>${channel.images.length} images.</span>` : undefined}
                   ${channel.videos.length > 0 ? html`<br><strong>Videos count: </strong> <span>${channel.videos.length} videos.</span>` : undefined}
-                  ${channel.sounds.length > 0 ? html`<br><strong>Sounds count: </strong> <span>${channel.sounds.length} sounds.</span>` : undefined}
+                  ${channel.audios.length > 0 ? html`<br><strong>Audios count: </strong> <span>${channel.audios.length} audios.</span>` : undefined}
                   ${channel.documents.length > 0 ? html`<br><strong>Documents count: </strong> <span>${channel.documents.length} documents.</span>` : undefined}
-                  ${channel.misc.length > 0 ? html`<br><strong>Miscellaneous count: </strong> <span>${channel.misc.length} misc.</span>` : undefined}
+                  ${channel.miscs.length > 0 ? html`<br><strong>Miscellaneous count: </strong> <span>${channel.miscs.length} miscs.</span>` : undefined}
                 </p>
               </div>
             </div>
@@ -305,71 +313,232 @@ function messageInfoModal () {
 }
 
 /**
+ * Show image modal.
+ */
+function imageModal () {
+  if (document.getElementById('imagemodal')) {
+    document.getElementById('imagemodal').outerHTML = ''
+  } else {
+    document.getElementById('modals').appendChild(html`
+      <div class="modal is-active" id="imagemodal">
+        <div class="modal-background" onclick="${imageModal}"></div>
+        <div class="modal-content">
+          <img src="${this.src}">
+        </div>
+        <a class="modal-close" onclick="${imageModal}"></a>
+      </div>
+    `)
+  }
+}
+
+function d (el, element) {
+  el.parentElement.oncanplay = function () {
+    element.parentElement.querySelector('br').outerHTML = ''
+    element.outerHTML = ''
+    el.parentElement.oncanplay = undefined
+  }
+  el.parentElement.load()
+}
+
+/**
+ * Load the message attachment.
+ * @param {{ i: Number, po: Number, name: Number, type: string }} data
+ */
+function messageAttachmentLoader (data) {
+  if (data instanceof MouseEvent) data.stopPropagation()
+  let element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
+  let i = element ? Number(element.dataset.i) : data.i
+  let archive = archiveCheckExists(i).fileList
+  let type = element ? element.dataset.type : data.type
+  let name = element ? element.dataset.name : data.name
+  let channel = element ? Number(element.dataset.c) : data.channel
+  let contentIndex = archive.channels[channel][type].findIndex(file => file.name === name)
+  let content = archive.channels[channel][type][contentIndex]
+  if (content.async) {
+    if (['videos', 'audios'].includes(type)) {
+      element.innerText = 'Loading...'
+      element.onclick = undefined
+    }
+    content.async('base64').then(res => {
+      archive.channels[channel][type][contentIndex] = {
+        name: content.name,
+        data: `data:${type.substr(0, type.length - 1)}/${content.name.split('.')[1]};base64,${res}`
+      }
+      let el
+      if (['videos', 'audios'].includes(type)) el = element.parentElement.querySelector('[src]')
+      else el = element
+      el.src = archive.channels[channel][type][contentIndex].data
+      el.type = `${type.substr(0, type.length - 1)}/${content.name.split('.')[1]}`
+      if (['videos', 'audios'].includes(type)) d(el, element)
+      else if (type === 'images') el.onclick = imageModal
+    })
+  } else {
+    let el
+    if (['videos', 'audios'].includes(type)) el = element.parentElement.querySelector('[src]')
+    else el = element
+    el.src = archive.channels[channel][type][contentIndex].data
+    el.type = `${type.substr(0, type.length - 1)}/${content.name.split('.')[1]}`
+    if (['videos', 'audios'].includes(type)) d(el, element)
+    else if (type === 'images') el.onclick = imageModal
+  }
+}
+
+/**
+ *
+ * @param {*} i
+ * @param {*} msg
+ */
+function messageAttachmentRenderer (i, c, msg) {
+  let archive = archiveCheckExists(i).fileList
+  let attachments = msg.c.a.map(attachment => `[${attachment.i}]${attachment.n || ''}`).map((attachment, ind, arr) => {
+    let htmlContent
+    let img = archive.channels[c].images.find(file => file.name.includes(attachment))
+    let vid = archive.channels[c].videos.find(file => file.name.includes(attachment))
+    let snd = archive.channels[c].audios.find(file => file.name.includes(attachment))
+    let doc = archive.channels[c].documents.find(file => file.name.includes(attachment))
+    let misc = archive.channels[c].miscs.find(file => file.name.includes(attachment))
+    if (img) {
+      htmlContent = html`
+        <div class="embed" onclick="${messageAttachmentLoader}">
+          <img class="embed-image image placeholder-load-me" alt="." style="min-height:32px;min-width:32px;" data-type="images" data-i="${i}" data-c="${c}" data-name="${img.name}" src=" ">
+        </div>
+        ${ind !== (arr.length - 1) ? html`<br>` : undefined}
+      `
+    } else if (vid) {
+      htmlContent = html`
+        <div>
+          <a onclick="${messageAttachmentLoader}" data-type="videos" data-i="${i}" data-c="${c}" data-name="${vid.name}">Load video.</a>
+          <br>
+          <video class="embed-image" controls>
+            <source src>
+          </video>
+        </div>
+        ${ind !== (arr.length - 1) ? html`<br>` : undefined}
+      `
+    } else if (snd) {
+      // result.name = snd.name
+      // result.type = 'audios'
+      htmlContent = html`
+        <div>
+          <a onclick="${messageAttachmentLoader}" data-type="audios" data-i="${i}" data-c="${c}" data-name="${snd.name}">Load audio.</a>
+          <br>
+          <audio controls>
+            <source src>
+          </audio>
+        </div>
+        ${ind !== (arr.length - 1) ? html`<br>` : undefined}
+      `
+    } else if (doc) {
+      // result.name = doc.name
+      // result.type = 'documents'
+      htmlContent = html`
+        <p>Document: ${doc.name}</p>
+      `
+    } else if (misc) {
+      // result.name = misc.name
+      // result.type = 'miscs'
+      htmlContent = html`
+        <p>Misc: ${misc.name}</p>
+      `
+    }
+    return htmlContent
+  })
+  return attachments
+}
+/**
  * Renders message embeds.
  * @param {Number} i Archive index.
  * @param {Object} msg Message object.
  * @returns {[DocumentFragment]} Document fragments.
  */
 function messageEmbedRenderer (i, msg) {
-  return msg.c.e.map(embed => html`
-    <div class="box" style="padding:.75rem 0;">
-      <div class="columns" style="padding:0 0.75rem;">
-        <div class="column is-paddingless is-1" style="${'width:10px;' + 'background-color:' + (embed.c || '#4f545c')}"></div>
-        ${(embed.a || embed.ti || embed.d || embed.f || embed.i || embed.fo) ? html`
-          <div class="column">
-            ${embed.a ? html`
-              ${embed.a.a ? html`
-                <span class="icon is-small">
-                  <img src="${embed.a.a}">
-                </span>
+  return msg.c.e.map((embed, ind, arr) => {
+    let icon
+    if ((embed.p && embed.p.u) && (embed.a ? (embed.a && !embed.a.a) : true)) icon = embed.p.u + '/favicon.ico'
+    else icon = embed.a ? embed.a.a : false
+    let author
+    if ((embed.p && embed.p.n) && (embed.a ? (embed.a && !embed.a.n) : true)) author = embed.p.n
+    else author = embed.a ? embed.a.n : false
+    let authorLink
+    if ((embed.p && embed.p.u) && (embed.a ? (embed.a && !embed.a.u) : true)) authorLink = embed.p.u
+    else authorLink = embed.a ? embed.a.u : false
+    return html`
+      <div class="box is-marginless is-paddingless">
+        <div class="columns is-marginless is-paddingless">
+          <div class="column is-paddingless is-1" style="${'width:10px;' + 'background-color:' + (embed.c || '#4f545c')}"></div>
+          ${(icon || author || embed.ti || embed.d || embed.f || embed.i || embed.fo) ? html`
+            <div class="column">
+              ${icon || author ? html`
+                ${icon ? html`
+                  <span class="icon is-small">
+                    <img src="${icon}">
+                  </span>
+                ` : undefined}
+                ${author ? (authorLink ? html`
+                  <small> <strong> <a href="${authorLink}" target="_blank"> ${author}</a></strong></small>
+                ` : html`
+                  <small> <strong> ${author}</strong></small>
+                `) : undefined}
               ` : undefined}
-              ${embed.a.n ? (embed.a.u ? html`
-                <small> <strong> <a href="${embed.a.u}" target="_blank"> ${embed.a.n}</a></strong></small>
-              ` : html`
-                <small> <strong> ${embed.a.n}</strong></small>
-              `) : undefined}
-            ` : undefined}
-            ${embed.ti ? (embed.u ? html`${embed.a ? html`<br>` : undefined}<strong><a href="${embed.u}" target="_blank">${embed.ti}</a></strong>` : html`${embed.a ? html`<br>` : undefined}<strong>${embed.ti}</strong>`) : undefined}
-            ${embed.d ? html`${(embed.ti || embed.a) ? html`<br>` : undefined}<span style="white-space:pre-wrap;">${messageParser(i, embed.d, 'md')}</span>` : undefined}
-            ${embed.f ? html`
-              ${embed.f.map(field => html`
-                <div class="${`column is-paddingless${field.l ? '' : ' is-12'}`}">
-                  ${field.n ? html`<strong>${messageParser(i, field.n)}</strong>${field.v ? html`<br>` : undefined}` : undefined}
-                  ${field.v ? html`${messageParser(i, field.v, 'md')}` : undefined}
+              ${embed.ti ? (embed.u ? html`${author || icon ? html`<br>` : undefined}<strong><a href="${embed.u}" target="_blank">${embed.ti}</a></strong>` : html`${author || icon ? html`<br>` : undefined}<strong>${embed.ti}</strong>`) : undefined}
+              ${embed.d ? html`${(embed.ti || author || icon) ? html`<br>` : undefined}<span style="white-space:pre-wrap;">${messageRenderer(i, embed.d, 'md')}</span>` : undefined}
+              ${embed.f ? html`
+                ${embed.f.map(field => html`
+                  <div class="${`column is-paddingless${field.l ? '' : ' is-12'}`}">
+                  <p style="white-space:pre-wrap;">${field.n ? html`<strong>${messageRenderer(i, field.n)}</strong>${field.v ? html`<br>` : undefined}` : undefined}${field.v ? html`${messageRenderer(i, field.v, 'md')}` : undefined}</p>
+                  </div>
+                `)}
+              ` : undefined}
+              ${embed.i || (embed.ty === 'image') ? html`
+                <div class="image is-marginless embed">
+                  <img src="${(embed.ty === 'image') ? embed.th : embed.i}" class="embed-image">
                 </div>
-              `)}
-            ` : undefined}
-            ${embed.i ? html`
-              <figure class="image">
-                <img src="${embed.i}">
-              </figure>
-            ` : undefined}
-            ${embed.fo ? html`
-              ${(embed.ti || embed.a || embed.d) && !embed.f ? html`<br>` : undefined}
-              ${embed.fo.u ? html`
-                <span class="icon is-small">
-                  <img src="${embed.fo.u}">
-                </span>
               ` : undefined}
-              ${embed.fo.v ? html`
-                <small>${embed.fo.v}</small>
+              ${embed.v ? ((embed.fo && embed.fo.v) && embed.fo.v.toLowerCase() === 'twitter') ? html`
+                <div class="image is-marginless embed">
+                  <a href="${embed.u}" target="_blank"><img src="${embed.th}" class="embed-image"></a>
+                </div>
+              ` : (html`
+                <div class="has-text-left image is-marginless embed">
+                  ${['youtube', 'twitch'].includes(embed.p ? (embed.p.n ? embed.p.n.toLowerCase() : 'none') : 'none') ? html`
+                    <div class="video-container">
+                      <iframe src="${embed.v}" frameborder="0"></iframe>
+                    </div>
+                  ` : html`
+                    <video class="embed-image" controls loop="${(embed.ty && ['gifv', 'gif'].includes(embed.ty.toLowerCase())) ? 'yes' : undefined}" autoplay="${(embed.ty && ['gifv', 'gif'].includes(embed.ty.toLowerCase())) ? 'yes' : undefined}">
+                      <source src="${embed.v}">
+                    </video>
+                  `}
+                </div>
+              `) : undefined}
+              ${embed.fo ? html`
+                ${(embed.ti || author || icon || embed.d) && !embed.f && !embed.i && !embed.v && !(embed.ty === 'image') ? html`<br>` : undefined}
+                ${embed.fo.u ? html`
+                  <span class="icon is-small">
+                    <img src="${embed.fo.u}">
+                  </span>
+                ` : undefined}
+                ${embed.fo.v ? html`
+                  <small>${embed.fo.v}</small>
+                ` : undefined}
+                ${typeof embed.t === 'number' ? html`
+                  <span> &bull; </span> <small title="${new Date(embed.t)}">${new Date(embed.t).toLocaleString()}</small>
+                ` : undefined}
               ` : undefined}
-              ${typeof embed.t === 'number' ? html`
-                <span> &bull; </span> <small title="${new Date(embed.t)}">${new Date(embed.t).toLocaleString()}</small>
-              ` : undefined}
-            ` : undefined}
-          </div>
-        ` : undefined}
-        ${embed.th ? html`
-          <div class="${'column' + ((embed.a || embed.ti || embed.d || embed.f || embed.i || embed.fo) ? ' is-narrow' : '')}">
-            <figure class="${'image' + ((embed.a || embed.ti || embed.d || embed.f || embed.i || embed.fo) ? ' is-128' : '')}">
-              <img src="${embed.th}">
-            </figure>
-          </div>
-        ` : undefined}
+            </div>
+          ` : undefined}
+          ${embed.th ? html`
+            <div class="${'column' + ((author || icon || embed.ti || embed.d || embed.f || embed.i || embed.fo) ? ' is-narrow' : '')}">
+              <div class="${'image embed' + ((author || icon || embed.ti || embed.d || embed.f || embed.i || embed.fo) ? ' is-128' : '')}">
+                ${embed.u ? html`<a href="${embed.u}" target="_blank"><img src="${embed.th}" class="embed-image"></a>` : html`<img src="${embed.th}" class="embed-image">`}
+              </div>
+            </div>
+          ` : undefined}
+        </div>
       </div>
-    </div>
-  `)
+      ${ind !== (arr.length - 1) ? html`<br>` : undefined}
+    `
+  })
 }
 
 /**
@@ -392,7 +561,7 @@ function emojiconLoader (data) {
         emoji.async('base64').then(res => {
           archive.generalData.emojis[compressedEmojiIndex] = {
             name: emoji.name,
-            data: `data:image/${res + emoji.name.split('.')[1]};base64,${res}`
+            data: `data:image/${emoji.name.split('.')[1]};base64,${res}`
           }
           element.src = archive.generalData.emojis[compressedEmojiIndex].data
         })
@@ -404,7 +573,9 @@ function emojiconLoader (data) {
 function emojiconRender (i, eID) {
   let archive = archiveCheckExists(i).fileList
   let emoji = archive.generalData.emojisInfo[eID]
-  return (emoji ? `<span class="icon is-small" title="${emoji.n}"><img src=" " data-i="${i}" data-ind="${eID}" data-e="lorem"></span>` : undefined) || `:${eID}:`
+  let regex = new RegExp(`Downloads/Emojis/${eID}(\\.png$|\\.jpg$|\\.gif$)`)
+  let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regex))
+  return ((emoji && compressedEmojiIndex > -1) ? `<span class="icon" title="${emoji.n}"><img src=" " data-i="${i}" data-ind="${eID}" data-e="lorem"></span>` : undefined) || `:${emoji.n || eID}:`
 }
 
 /**
@@ -431,12 +602,35 @@ function messageReactionsRenderer (i, msg) {
 }
 
 /**
+ *
+ * @param {String} type String type.
+ */
+function typeRenderer (type) {
+  switch (type) {
+    case 'RECIPIENT_ADD':
+      return html`<i class="has-background-white-ter has-text-grey">Added a recipient.</i>`
+    case 'RECIPIENT_REMOVE':
+      return html`<i class="has-background-white-ter has-text-grey">Removed a recipient.</i>`
+    case 'CALL':
+      return html`<i class="has-background-white-ter has-text-grey">Started a call.</i>`
+    case 'CHANNEL_NAME_CHANGE':
+      return html`<i class="has-background-white-ter has-text-grey">Changed channel name.</i>`
+    case 'CHANNEL_ICON_CHANGE':
+      return html`<i class="has-background-white-ter has-text-grey">Changed icon.</i>`
+    case 'PINS_ADD':
+      return html`<i class="has-background-white-ter has-text-grey">Pinned a message.</i>`
+    case 'GUILD_MEMBER_JOIN':
+      return html`<i class="has-background-white-ter has-text-grey">Joined the guild.</i>`
+  }
+}
+
+/**
  * Parses the message content with relevant information.
  * @param {Number} i Archive index.
  * @param {String} msgC Message content.
  * @return {String}
  */
-function messageParser (i, msgC, type) {
+function messageRenderer (i, msgC, type) {
   let archive = archiveCheckExists(i).fileList
 
   msgC = msgC.replace(/</g, '&lt;')
@@ -546,12 +740,14 @@ function loadChat (data) {
           </figure>
         </div>
         <div class="media-content content">
-          <a onclick="${memberInfoModal}" data-i="${i}" data-ind="${msg.u}"><strong title="${archive.generalData.usersInfo[msg.u].tg}" style="${'color:' + getTopUserRole({ i, ind: msg.u }).c + ';'}">${archive.generalData.usersInfo[msg.u].n}</strong></a>
+          <a onclick="${memberInfoModal}" data-i="${i}" data-ind="${msg.u}"><strong title="${archive.generalData.usersInfo[msg.u].tg}" style="${'color:' + getTopUserRole({ i, ind: msg.u }).c + ';'}">${archive.generalData.usersInfo[msg.u].n || msg.u}</strong></a>
           <small title="${new Date(msg.t).toLocaleString() + (msg.e ? ', edited ' + new Date(msg.e).toLocaleString() : '')}">${moment(msg.t).fromNow()} ${msg.e ? `(edited)` : undefined}</small>
           <a class="button is-light is-pulled-right" onclick="${messageInfoModal}" data-i="${i}" data-c="${c}" data-f="${f}" data-ind="${msgCount + ((arr.length > 0 ? arr.length - 1 : 0) - ind)}">≡</a>
-          <p class="is-marginless" style="white-space:pre-wrap;">${messageParser(i, msg.c.m)}</p>
+          <p class="is-marginless" style="white-space:pre-wrap;">${msg.c.m.length > 0 ? messageRenderer(i, msg.c.m) : ' '}</p>
+          ${msg.ty ? html`<p class="is-marginless" style="white-space:pre-wrap;">${typeRenderer(msg.ty)}</p>` : undefined}
           ${msg.c.e ? html`${messageEmbedRenderer(i, msg)}` : undefined}
-          ${msg.c.r ? html`${messageReactionsRenderer(i, msg)}` : undefined}
+          ${msg.c.a ? html`${messageAttachmentRenderer(i, c, msg)}` : undefined}
+          ${msg.c.r ? html`${msg.c.e ? html`<br>` : undefined}${messageReactionsRenderer(i, msg)}` : undefined}
         </div>
       </div>
     `)}
@@ -576,7 +772,7 @@ function loadChannel () {
       if (document.getElementById('channelsettings')) document.getElementById('channelsettings').outerHTML = ''
       if (Number.isNaN(f)) f = typeof channel.selectedSplit === 'number' ? channel.selectedSplit : 0
       loadingModal({ title: `Loading channel ${channel.info.n}, split ${f}...` })
-      document.getElementById('chattitle').innerText = (channel.info.n.length > 16 ? channel.info.n.substr(0, 16) + '...' : channel.info.n) + `[${f + 1}]`
+      document.getElementById('chattitle').innerText = ((channel.info.n && channel.info.n.length > 16) ? channel.info.n.substr(0, 16) + '...' : channel.info.n) + `[${f + 1}]`
       document.getElementById('chatdescription').innerHTML = `<small>(⚙) ${channel.info.to ? (channel.info.to.length > 32 ? channel.info.to.substr(0, 32) + '...' : channel.info.to) : ''}</small>`
       document.getElementById('chatdescription').dataset.i = i
       document.getElementById('chatdescription').dataset.ind = channel.info.orig
@@ -606,7 +802,7 @@ function loadChannel () {
  */
 function channelsList (i) {
   let archive = archiveCheckExists(i).fileList
-  let parentChannels = archive.generalData.channels.p.filter((v, i, a) => a.map(i => i.i).indexOf(v.i) === i)
+  let parentChannels = archive.generalData.channels.p.filter((v, i, a) => a.map(i => i.po).indexOf(v.po) === i)
   parentChannels = parentChannels.map((pc, ind) => {
     return {
       ...pc,
@@ -615,14 +811,16 @@ function channelsList (i) {
   }).sort((a, b) => a.po - b.po)
   return html`
     <aside class="menu">
-      <ul class="menu-list">
-        ${archive.generalData.channels.c.filter(c => typeof c.pa !== 'number').sort((a, b) => a.po - b.po).map(c => html`<li><a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a></li>`)}
-      </ul>
-      <br>
-      ${parentChannels.map((pc, ind) => html`
-        <label class="menu-label">${pc.n}</label>
+      ${archive.generalData.channels.c.filter(c => typeof c.pa !== 'number').length > 0 ? html`
         <ul class="menu-list">
-          ${pc.chs.map(c => html`<li><a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a></li>`)}
+          ${archive.generalData.channels.c.filter(c => typeof c.pa !== 'number').sort((a, b) => a.po - b.po).map(c => html`<li>${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? html`<a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>` : html`<a class="has-background-grey-lighter">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>`}</li>`)}
+        </ul>
+        <br>
+      ` : undefined}
+      ${parentChannels.map((pc, ind) => html`
+        <label class="menu-label">${pc.n || ind}</label>
+        <ul class="menu-list">
+          ${pc.chs.map(c => html`<li>${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? html`<a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>` : html`<a class="has-background-grey-lighter">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>`}</li>`)}
         </ul>
       `)}
     </aside>
@@ -783,16 +981,18 @@ function memberInfoModal () {
         <div class="modal-background" onclick="${memberInfoModal}"></div>
         <div class="modal-card">
           <div class="modal-card-body">
-            <figure class="image container is-128x128">
-              <img class="is-rounded" src=" " data-i="${i}" data-ind="${ind}" onerror="${userImageLoader}">
-            </figure>
+            ${user.t || user.a ? html`
+              <figure class="image container is-128x128">
+                <img class="is-rounded" src=" " data-i="${i}" data-ind="${ind}" onerror="${userImageLoader}">
+              </figure>
+            ` : undefined}
             <div class="content">
-              <h3 class="has-text-centered">${user.tg}</h3>
-              ${user.b ? html`<strong>Bot account</strong><br>` : undefined}
-              <strong>ID: </strong><span>${user.i}</span><br>
-              <strong>Roles: </strong><div class="tags is-marginless">${[...getUserRoles({ i, ind }).map(i => archive.generalData.rolesInfo[i])].sort((a, b) => b.po - a.po).map(r => html`<span class="tag is-light"><a data-i="${i}" data-po="${r.po}" onclick="${roleInfoModal}" style="${'color:' + r.c + ';'}">${r.n}</a></span>`)}</div>
-              ${user.j ? html`<strong>Joined: </strong><span title="${new Date(user.j)}">${new Date(user.j).toLocaleString()}</span><br>` : undefined}
-              ${user.t ? html`<strong>Created: </strong><span title="${new Date(user.t)}">${new Date(user.t).toLocaleString()}</span>` : undefined}
+              <h3 class="has-text-centered">${user.tg || ind}</h3>
+              ${user.b ? html`<strong>Bot account</strong><br>` : (typeof archive.generalData.guild.info.o === 'number' ? archive.generalData.guild.info.o === ind : false) ? html`<strong>Owner</strong><br>` : undefined}
+              ${user.i ? html`<strong>ID: </strong><span>${user.i}</span><br>` : undefined}
+              ${user.j ? html`<strong>Roles: </strong><div class="tags is-marginless">${[...getUserRoles({ i, ind }).map(i => archive.generalData.rolesInfo[i])].sort((a, b) => b.po - a.po).map(r => html`<span class="tag is-light"><a data-i="${i}" data-po="${r.po}" onclick="${roleInfoModal}" style="${'color:' + r.c + ';'}">${r.n}</a></span>`)}</div>` : undefined}
+              ${user.t ? html`<strong>Created: </strong><span title="${new Date(user.t)}">${new Date(user.t).toLocaleString()}</span><br>` : undefined}
+              ${user.j ? html`<strong>Joined: </strong><span title="${new Date(user.j)}">${new Date(user.j).toLocaleString()}</span>` : html`<strong>Information unavailable.</strong>`}
             </div>
           </div>
         </div>
@@ -822,7 +1022,7 @@ function userImageLoader (data) {
         image.async('base64').then(res => {
           archive.generalData.avatars[compressedImageIndex] = {
             name: image.name,
-            data: `data:image/${res + image.name.split('.')[1]};base64,${res}`
+            data: `data:image/${image.name.split('.')[1]};base64,${res}`
           }
           element.src = archive.generalData.avatars[compressedImageIndex].data
         })
@@ -846,15 +1046,15 @@ function membersList (i) {
       ${roles.map(r => html`
         <label class="menu-label">${r.n + ' - ' + r.users.length}</label>
         <ul class="menu-list">
-          ${r.users.map(num => { return { ind: num, n: archive.generalData.usersInfo[num].n } }).sort((a, b) => (a.n && b.n ? a.n.localeCompare(b.n) : (!a.n && b.n ? 1 : (a.n && !b.n ? -1 : 0)))).map(u => html`
-            <li style="${u.n ? undefined : 'color:#fff!important;background-color:rgba(0, 0, 0, 0.5);'}">
+          ${r.users.map(num => { return { ind: num, n: archive.generalData.usersInfo[num].n, j: archive.generalData.usersInfo[num].j, t: archive.generalData.usersInfo[num].t, a: archive.generalData.usersInfo[num].a, b: archive.generalData.usersInfo[num].b } }).sort((a, b) => (a.n && b.n ? a.n.localeCompare(b.n) : (!a.n && b.n ? 1 : (a.n && !b.n ? -1 : 0)))).map(u => html`
+            <li class="${(u.n && u.j ? true : (!u.n ? false : typeof u.j === 'number')) ? undefined : 'has-background-grey-lighter'}">
               <a data-i=${i} data-ind="${u.ind}" onclick="${memberInfoModal}">
                 <div class="level is-mobile">
                   <div class="level-left">
-                    <figure onclick=${userImageLoader} class="level-item image is-32x32">
+                    ${u.t || u.a ? html`<figure onclick=${userImageLoader} class="level-item image is-32x32">
                       <img class="is-rounded placeholder-load-me" alt="." data-i="${i}" data-ind="${u.ind}">
-                    </figure>
-                    <span style="${'color:' + r.c + ';'}">${u.n ? (u.n.length > 16 ? u.n.substr(0, 16) + '...' : u.n) : '?'}</span>
+                    </figure>` : undefined}
+                    ${u.b ? html` <span class="tag is-info"> Bot</span>` : (typeof archive.generalData.guild.info.o === 'number' ? archive.generalData.guild.info.o === u.ind : false) ? html` <span class="tag is-warning">Owner</span>` : undefined} <span style="${'color:' + r.c + ';'}">${u.n ? (u.n.length > 16 ? u.n.substr(0, 16) + '...' : u.n) : u.ind}</span>
                   </div>
                 </div>
               </a>
@@ -902,10 +1102,10 @@ function loadSelectedTypes (e) {
   let form = document.forms['selectedTypes']
   let selectedChannels = []
   let selectedLoadImages = []
-  let selectedLoadSounds = []
+  let selectedLoadAudios = []
   let selectedLoadVideos = []
   let selectedLoadDocuments = []
-  let selectedLoadMisc = []
+  let selectedLoadMiscs = []
   for (let ind = 0; ind < form.elements.length; ind++) {
     const e = form.elements[ind]
     if (!e.checked) continue
@@ -916,8 +1116,8 @@ function loadSelectedTypes (e) {
       case 'images':
         selectedLoadImages.push(Number(e.dataset.i))
         break
-      case 'sounds':
-        selectedLoadSounds.push(Number(e.dataset.i))
+      case 'audios':
+        selectedLoadAudios.push(Number(e.dataset.i))
         break
       case 'videos':
         selectedLoadVideos.push(Number(e.dataset.i))
@@ -925,8 +1125,8 @@ function loadSelectedTypes (e) {
       case 'documents':
         selectedLoadDocuments.push(Number(e.dataset.i))
         break
-      case 'misc':
-        selectedLoadMisc.push(Number(e.dataset.i))
+      case 'miscs':
+        selectedLoadMiscs.push(Number(e.dataset.i))
         break
     }
   }
@@ -954,14 +1154,14 @@ function loadSelectedTypes (e) {
       this.channels[index].messageFiles = filteredMessageFiles
       // Remove images here.
       if (!selectedLoadImages.includes(channel.info.po)) this.channels[index].images = []
-      // Remove sounds here.
-      if (!selectedLoadSounds.includes(channel.info.po)) this.channels[index].sounds = []
+      // Remove audios here.
+      if (!selectedLoadAudios.includes(channel.info.po)) this.channels[index].audios = []
       // Remove videos here.
       if (!selectedLoadVideos.includes(channel.info.po)) this.channels[index].videos = []
       // Remove documents here.
       if (!selectedLoadDocuments.includes(channel.info.po)) this.channels[index].documents = []
       // Remove misc here.
-      if (!selectedLoadMisc.includes(channel.info.po)) this.channels[index].misc = []
+      if (!selectedLoadMiscs.includes(channel.info.po)) this.channels[index].miscs = []
     }
     // Remove avatars
     if (!form.elements['avatars'] || !form.elements['avatars'].checked) this.generalData.avatars = []
@@ -975,10 +1175,16 @@ function loadSelectedTypes (e) {
     for (let ind = 0; ind < archive.fileList.generalData.usersInfo.length; ind++) {
       let user = archive.fileList.generalData.usersInfo[ind]
       if (user.r) {
-        let role = archive.fileList.generalData.rolesInfo[user.r[user.r.length - 1]]
-        if (!role.users) role.users = []
-        role.users.push(ind)
-      } else {
+        let role = user.r.map(r => archive.fileList.generalData.rolesInfo[r]).sort((a, b) => b.po - a.po).filter(r => r.h)[0]
+        if (role) {
+          if (!role.users) role.users = []
+          role.users.push(ind)
+        } else {
+          let defaultRole = archive.fileList.generalData.rolesInfo.find(r => r.n === '@everyone')
+          if (!defaultRole.users) defaultRole.users = []
+          defaultRole.users.push(ind)
+        }
+      } else if (archive.fileList.generalData.rolesInfo.length > 0) {
         // Deleted / Left user, maybe.
         let defaultRole = archive.fileList.generalData.rolesInfo.find(r => r.n === '@everyone')
         if (!defaultRole.users) defaultRole.users = []
@@ -987,10 +1193,15 @@ function loadSelectedTypes (e) {
     }
     // Add orig to all channels
     archive.fileList.generalData.channels.c.map((c, ind) => { c.orig = ind; return c })
+    // Initialize default values for anonymized archives.
+    if (!archive.fileList.generalData.guild.info.n) archive.fileList.generalData.guild.info.n = ' '
+    if (!archive.fileList.generalData.guild.info.a) archive.fileList.generalData.guild.info.a = ' '
+    if (archive.fileList.generalData.rolesInfo.length === 0) archive.fileList.generalData.rolesInfo.push({ n: '@everyone', po: 0, users: archive.fileList.generalData.usersInfo.map((i, ind) => ind) })
+    archive.fileList.generalData.usersInfo.forEach(user => {
+      if (!user.r) user.r = [0]
+    })
     // Delete the ZIP file.
     archive.file = undefined
-    // Clear modal.
-    toggleErrorModal()
     document.getElementById('parsezip').outerHTML = ''
     // Add 'load archive' button to sidebar
     sidebarIcons.unshift({
@@ -1072,10 +1283,10 @@ function parseZIPFiles (why) {
               messageFiles: i.channelMessages,
               info: channel,
               images: [],
-              sounds: [],
+              audios: [],
               videos: [],
               documents: [],
-              misc: []
+              miscs: []
             }
             if (channelFiles.length > 0) {
               for (let i = 0; i < channelFiles.length; i++) {
@@ -1083,12 +1294,12 @@ function parseZIPFiles (why) {
                 if (file.name.toLowerCase().match(/\.png$|\.jpg$|\.gif$/)) {
                   returnObject.images.push(file)
                 } else if (file.name.toLowerCase().match(/\.wav$|\.mp3$|\.aac$/)) {
-                  returnObject.sounds.push(file)
+                  returnObject.audios.push(file)
                 } else if (file.name.toLowerCase().match(/\.mp4$|\.webm$|\.avi$/)) {
                   returnObject.videos.push(file)
                 } else if (file.name.toLowerCase().match(/\.pdf$|\.txt$|\.rtf$/)) {
                   returnObject.documents.push(file)
-                } else returnObject.misc.push(file)
+                } else returnObject.miscs.push(file)
               }
             }
             return returnObject
@@ -1229,10 +1440,10 @@ function parseZIPFiles (why) {
                             </label>
                             <br>
                           ` : undefined}
-                          ${i.sounds.length > 0 ? html`
+                          ${i.audios.length > 0 ? html`
                             <label class="checkbox">
-                              <input type="checkbox" checked name="sounds" data-i="${i.info.po}">
-                              <span title="${i.sounds.reduce(reducer, 0) + ' bytes.'}">Load sound files. <small>~${displaySize(i.sounds.reduce(reducer, 0))}</small></span>
+                              <input type="checkbox" checked name="audios" data-i="${i.info.po}">
+                              <span title="${i.audios.reduce(reducer, 0) + ' bytes.'}">Load audio files. <small>~${displaySize(i.audios.reduce(reducer, 0))}</small></span>
                             </label>
                             <br>
                           ` : undefined}
@@ -1250,10 +1461,10 @@ function parseZIPFiles (why) {
                             </label>
                             <br>
                           ` : undefined}
-                          ${i.misc.length > 0 ? html`
+                          ${i.miscs.length > 0 ? html`
                             <label class="checkbox">
-                              <input type="checkbox" checked name="misc" data-i="${i.info.po}">
-                              <span title="${i.misc.reduce(reducer, 0) + ' bytes.'}">Load misc files. <small>~${displaySize(i.misc.reduce(reducer, 0))}</small></span>
+                              <input type="checkbox" checked name="miscs" data-i="${i.info.po}">
+                              <span title="${i.miscs.reduce(reducer, 0) + ' bytes.'}">Load misc files. <small>~${displaySize(i.miscs.reduce(reducer, 0))}</small></span>
                             </label>
                           ` : undefined}
                         </div>
@@ -1272,12 +1483,12 @@ function parseZIPFiles (why) {
         }).catch(e => {
           cachedFiles.splice(i, 1)
           errors.push(e)
-          toggleErrorModal()
+          errorModal()
         })
       }).catch(e => {
         cachedFiles.splice(i, 1)
         errors.push(e)
-        toggleErrorModal()
+        errorModal()
       })
       break
     }
@@ -1305,7 +1516,7 @@ function handleZIPFiles () {
     if (!found) cachedFiles.push({ file, fileList: {}, parsed: false, name: `${file.name}${file.lastModified}${file.size}${file.type}` })
     else {
       errors.push(new Error('File already found!'))
-      toggleErrorModal()
+      errorModal()
     }
   }
   // Parse ZIP file
@@ -1317,7 +1528,7 @@ function handleZIPFiles () {
 /**
  * Displays an error from the 'errors' array.
  */
-function toggleErrorModal () {
+function errorModal () {
   if (errors.length === 0) {
     if (document.getElementById('error')) document.getElementById('error').outerHTML = ''
     return parseZIPFiles('Looking for another ZIP file to parse after successfully displaying an error.')
@@ -1327,7 +1538,7 @@ function toggleErrorModal () {
     document.getElementById('loader').outerHTML = ''
     document.getElementById('modals').appendChild(html`
       <div class="modal is-active" id="error">
-        <div class="modal-background" onclick="${toggleErrorModal}"></div>
+        <div class="modal-background" onclick="${errorModal}"></div>
         <div class="modal-card">
           <header class="modal-card-head has-background-danger">
             <p class="modal-card-title has-text-white">${error.name}</p>
@@ -1337,7 +1548,7 @@ function toggleErrorModal () {
             ${error.stack ? html`<strong>(${error.stack.match(/[\w]+\.[\w]+:[0-9]+:[0-9]+/g).join(', ')}) Error stack:</strong><pre>${error.stack.replace(/Users\/[\w]+/g, '...')}</pre>` : undefined}
           </div>
         </div>
-        <a class="modal-close" onclick="${toggleErrorModal}"></a>
+        <a class="modal-close" onclick="${errorModal}"></a>
       </div>
     `)
   }
@@ -1346,19 +1557,19 @@ function toggleErrorModal () {
 /**
  * For toggling options modal. Rendering entire content of modal, including modal-background and modal-close.
  */
-function toggleOptionsModal () {
+function optionsModal () {
   if (document.getElementById('options')) {
     document.getElementById('options').outerHTML = ''
   } else {
     document.getElementById('modals').appendChild(html`
       <div class="modal is-active" id="options">
-        <div class="modal-background" onclick="${toggleOptionsModal}"></div>
+        <div class="modal-background" onclick="${optionsModal}"></div>
         <div class="modal-card">
           <div class="modal-card-body">
             <p>Hello world.</p>
           </div>
         </div>
-        <a class="modal-close" onclick="${toggleOptionsModal}"></a>
+        <a class="modal-close" onclick="${optionsModal}"></a>
       </div>
     `)
   }
@@ -1376,7 +1587,7 @@ const sidebarIcons = [
   {
     tooltip: 'Options',
     text: '⚙',
-    function: toggleOptionsModal
+    function: optionsModal
   }
 ]
 
@@ -1407,6 +1618,8 @@ if (!window.localStorage.getItem('acknowledgement')) {
       return toggleMessageModal()
     },
     deny: () => {
+      messages.length = 0 // Empties array.
+      toggleMessageModal()
       messages.push({
         title: 'Denied',
         body: 'You can close this page now.',
@@ -1414,8 +1627,7 @@ if (!window.localStorage.getItem('acknowledgement')) {
           return window.history.back()
         }
       })
-      toggleMessageModal()
-      return window.history.back()
+      return toggleMessageModal()
     }
   })
 } else console.log('D.A.R.A.H. Viewer is not affiliated with, endorsed, sponsored, or specifically approved by Discord, Discord Inc. and/or Hammer & Chisel, Inc.')
