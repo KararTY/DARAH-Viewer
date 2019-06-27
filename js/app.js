@@ -322,8 +322,8 @@ function imageModal () {
     document.getElementById('modals').appendChild(html`
       <div class="modal is-active" id="imagemodal">
         <div class="modal-background" onclick="${imageModal}"></div>
-        <div class="modal-content">
-          <img src="${this.src}">
+        <div class="modal-content has-text-centered">
+          <a onclick="${() => { let win = window.open(); win.document.write('<iframe src="' + this.src + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>') }}"><img src="${this.src}"></a>
         </div>
         <a class="modal-close" onclick="${imageModal}"></a>
       </div>
@@ -335,7 +335,7 @@ function d (el, element) {
   el.parentElement.oncanplay = function () {
     element.parentElement.querySelector('br').outerHTML = ''
     element.outerHTML = ''
-    el.parentElement.oncanplay = undefined
+    el.parentElement.oncanplay = null
   }
   el.parentElement.load()
 }
@@ -345,6 +345,7 @@ function d (el, element) {
  * @param {{ i: Number, po: Number, name: Number, type: string }} data
  */
 function messageAttachmentLoader (data) {
+  console.log('click')
   if (data instanceof MouseEvent) data.stopPropagation()
   let element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
   let i = element ? Number(element.dataset.i) : data.i
@@ -356,19 +357,20 @@ function messageAttachmentLoader (data) {
   let content = archive.channels[channel][type][contentIndex]
   if (content.async) {
     if (['videos', 'audios'].includes(type)) {
+      element.removeEventListener('click', messageAttachmentLoader)
       element.innerText = 'Loading...'
-      element.onclick = undefined
-    }
+    } else if (type === 'images') element.parentElement.removeEventListener('click', messageAttachmentLoader)
+
     content.async('base64').then(res => {
       archive.channels[channel][type][contentIndex] = {
         name: content.name,
-        data: `data:${type.substr(0, type.length - 1)}/${content.name.split('.')[1]};base64,${res}`
+        data: `data:${type.substr(0, type.length - 1)}/${content.name.split('.').pop()};base64,${res}`
       }
       let el
       if (['videos', 'audios'].includes(type)) el = element.parentElement.querySelector('[src]')
       else el = element
       el.src = archive.channels[channel][type][contentIndex].data
-      el.type = `${type.substr(0, type.length - 1)}/${content.name.split('.')[1]}`
+      el.type = `${type.substr(0, type.length - 1)}/${content.name.split('.').pop()}`
       if (['videos', 'audios'].includes(type)) d(el, element)
       else if (type === 'images') el.onclick = imageModal
     })
@@ -377,7 +379,7 @@ function messageAttachmentLoader (data) {
     if (['videos', 'audios'].includes(type)) el = element.parentElement.querySelector('[src]')
     else el = element
     el.src = archive.channels[channel][type][contentIndex].data
-    el.type = `${type.substr(0, type.length - 1)}/${content.name.split('.')[1]}`
+    el.type = `${type.substr(0, type.length - 1)}/${content.name.split('.').pop()}`
     if (['videos', 'audios'].includes(type)) d(el, element)
     else if (type === 'images') el.onclick = imageModal
   }
@@ -561,7 +563,7 @@ function emojiconLoader (data) {
         emoji.async('base64').then(res => {
           archive.generalData.emojis[compressedEmojiIndex] = {
             name: emoji.name,
-            data: `data:image/${emoji.name.split('.')[1]};base64,${res}`
+            data: `data:image/${emoji.name.split('.').pop()};base64,${res}`
           }
           element.src = archive.generalData.emojis[compressedEmojiIndex].data
         })
@@ -1022,7 +1024,7 @@ function userImageLoader (data) {
         image.async('base64').then(res => {
           archive.generalData.avatars[compressedImageIndex] = {
             name: image.name,
-            data: `data:image/${image.name.split('.')[1]};base64,${res}`
+            data: `data:image/${image.name.split('.').pop()};base64,${res}`
           }
           element.src = archive.generalData.avatars[compressedImageIndex].data
         })
@@ -1333,7 +1335,7 @@ function parseZIPFiles (why) {
           if (generalData.guild.icon) {
             prom.push(new Promise((resolve, reject) => {
               generalData.guild.icon.async('base64').then(res => {
-                generalData.guild.icon = `data:image/${generalData.guild.icon.name.split('.')[1]};base64,${res}`
+                generalData.guild.icon = `data:image/${generalData.guild.icon.name.split('.').pop()};base64,${res}`
                 resolve()
               }).catch(reject)
             }))
