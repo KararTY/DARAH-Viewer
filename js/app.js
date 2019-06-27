@@ -555,7 +555,7 @@ function emojiconLoader (data) {
   let archive = archiveCheckExists(i).fileList
   let emoji = archive.generalData.emojisInfo[ind]
   if (archive.generalData.emojis.length > 0) {
-    let regex = new RegExp(`Downloads/Emojis/${ind}(\\.png$|\\.jpg$|\\.gif$)`)
+    let regex = new RegExp(`Downloads/Emojis/${ind}(\\.png$|\\.jpg$|\\.jpeg$|\\.gif$)`)
     let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regex))
     if (compressedEmojiIndex > -1) {
       let emoji = archive.generalData.emojis[compressedEmojiIndex]
@@ -575,7 +575,7 @@ function emojiconLoader (data) {
 function emojiconRender (i, eID) {
   let archive = archiveCheckExists(i).fileList
   let emoji = archive.generalData.emojisInfo[eID]
-  let regex = new RegExp(`Downloads/Emojis/${eID}(\\.png$|\\.jpg$|\\.gif$)`)
+  let regex = new RegExp(`Downloads/Emojis/${eID}(\\.png$|\\.jpg$|\\.jpeg$|\\.gif$)`)
   let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regex))
   return ((emoji && compressedEmojiIndex > -1) ? `<span class="icon" title="${emoji.n}"><img src=" " data-i="${i}" data-ind="${eID}" data-e="lorem"></span>` : undefined) || `:${emoji.n || eID}:`
 }
@@ -748,7 +748,7 @@ function loadChat (data) {
           <p class="is-marginless" style="white-space:pre-wrap;">${msg.c.m.length > 0 ? messageRenderer(i, msg.c.m) : ' '}</p>
           ${msg.ty ? html`<p class="is-marginless" style="white-space:pre-wrap;">${typeRenderer(msg.ty)}</p>` : undefined}
           ${msg.c.e ? html`${messageEmbedRenderer(i, msg)}` : undefined}
-          ${msg.c.a ? html`${messageAttachmentRenderer(i, c, msg)}` : undefined}
+          ${msg.c.a ? html`${(msg.c.e || msg.ty) ? html`<br>` : undefined}${messageAttachmentRenderer(i, c, msg)}` : undefined}
           ${msg.c.r ? html`${msg.c.e ? html`<br>` : undefined}${messageReactionsRenderer(i, msg)}` : undefined}
         </div>
       </div>
@@ -1016,7 +1016,7 @@ function userImageLoader (data) {
   let archive = archiveCheckExists(i).fileList
   let user = archive.generalData.usersInfo[ind]
   if (archive.generalData.avatars.length > 0) {
-    let regex = new RegExp(`Downloads/Users/${ind}(\\.png$|\\.jpg$|\\.gif$)`)
+    let regex = new RegExp(`Downloads/Users/${ind}(\\.png$|\\.jpg$|\\.jpeg$|\\.gif$)`)
     let compressedImageIndex = archive.generalData.avatars.findIndex(file => file.name.match(regex))
     if (compressedImageIndex > -1) {
       let image = archive.generalData.avatars[compressedImageIndex]
@@ -1293,7 +1293,7 @@ function parseZIPFiles (why) {
             if (channelFiles.length > 0) {
               for (let i = 0; i < channelFiles.length; i++) {
                 const file = channelFiles[i]
-                if (file.name.toLowerCase().match(/\.png$|\.jpg$|\.gif$/)) {
+                if (file.name.toLowerCase().match(/\.png$|\.jpg$|\.jpeg$|\.gif$/)) {
                   returnObject.images.push(file)
                 } else if (file.name.toLowerCase().match(/\.wav$|\.mp3$|\.aac$/)) {
                   returnObject.audios.push(file)
