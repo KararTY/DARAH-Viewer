@@ -1,3 +1,4 @@
+'use strict'
 /**
  * TODO: ATTACHMENTS LOADING.
  * IMPLEMENT: Message searching.
@@ -116,6 +117,16 @@ const messages = []
 const loadedContent = {}
 
 /**
+ * Regex
+ */
+function regexWithId (id) {
+  return {
+    userImage: new RegExp(`Downloads/Users/${id}(\\.png$|\\.jpg$|\\.jpeg$|\\.gif$)`),
+    emoji: new RegExp(`Downloads/Emojis/${id}(\\.png$|\\.jpg$|\\.jpeg$|\\.gif$)`)
+  }
+}
+
+/**
  * Initializes the layout of the application.
  * @param {HTMLElement} node
  */
@@ -187,8 +198,7 @@ function archiveCheckExists (i) {
   if (cachedFiles[i]) return cachedFiles[i]
   else {
     let error = new Error("That archive doesn't exist. Maybe deleted?")
-    errors.push(error)
-    errorModal()
+    errorModal(error)
     throw error
   }
 }
@@ -555,8 +565,7 @@ function emojiconLoader (data) {
   let archive = archiveCheckExists(i).fileList
   let emoji = archive.generalData.emojisInfo[ind]
   if (archive.generalData.emojis.length > 0) {
-    let regex = new RegExp(`Downloads/Emojis/${ind}(\\.png$|\\.jpg$|\\.jpeg$|\\.gif$)`)
-    let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regex))
+    let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regexWithId(ind).emoji))
     if (compressedEmojiIndex > -1) {
       let emoji = archive.generalData.emojis[compressedEmojiIndex]
       if (emoji.async) {
@@ -575,8 +584,7 @@ function emojiconLoader (data) {
 function emojiconRender (i, eID) {
   let archive = archiveCheckExists(i).fileList
   let emoji = archive.generalData.emojisInfo[eID]
-  let regex = new RegExp(`Downloads/Emojis/${eID}(\\.png$|\\.jpg$|\\.jpeg$|\\.gif$)`)
-  let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regex))
+  let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regexWithId(eID).emoji))
   return ((emoji && compressedEmojiIndex > -1) ? `<span class="icon" title="${emoji.n}"><img src=" " data-i="${i}" data-ind="${eID}" data-e="lorem"></span>` : undefined) || `:${emoji.n || eID}:`
 }
 
@@ -757,7 +765,7 @@ function loadChat (data) {
     ${msgCount > 1 ? html`<p class="has-text-centered"><a class="button" data-i="${i}" data-c="${c}" data-f="${f}" data-msgcount="${msgCount - 100}" onclick="${loadChat}" data-scroll="down">Load newer...</a></p>` : undefined}
   `
   document.getElementById('chat').appendChild(messageContainer)
-  document.getElementById('chat').scrollTo(document.getElementById('chat').scrollWidth, (this.dataset && this.dataset.scroll === 'down') ? 0 : document.getElementById('chat').scrollTop + 9999)
+  document.getElementById('chat').scrollTo(document.getElementById('chat').scrollWidth, (this && this.dataset && this.dataset.scroll === 'down') ? 0 : document.getElementById('chat').scrollTop + 9999)
 }
 
 /**
@@ -812,7 +820,7 @@ function channelsList (i) {
     }
   }).sort((a, b) => a.po - b.po)
   return html`
-    <aside class="menu">
+    <aside class="menu is-marginless">
       ${archive.generalData.channels.c.filter(c => typeof c.pa !== 'number').length > 0 ? html`
         <ul class="menu-list">
           ${archive.generalData.channels.c.filter(c => typeof c.pa !== 'number').sort((a, b) => a.po - b.po).map(c => html`<li>${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? html`<a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>` : html`<a class="has-background-grey-lighter">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>`}</li>`)}
@@ -820,7 +828,7 @@ function channelsList (i) {
         <br>
       ` : undefined}
       ${parentChannels.map((pc, ind) => html`
-        <label class="menu-label">${pc.n || ind}</label>
+        <label class="menu-label" style="margin-left:.75rem;">${pc.n || ind}</label>
         <ul class="menu-list">
           ${pc.chs.map(c => html`<li>${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? html`<a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>` : html`<a class="has-background-grey-lighter">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>`}</li>`)}
         </ul>
@@ -841,32 +849,34 @@ function roleInfoModal () {
     } else {
       let archive = archiveCheckExists(i).fileList
       let role = archive.generalData.rolesInfo.find(r => r.po === Number(this.dataset.po))
-      document.getElementById('modals').appendChild(html`
-      <div class="modal is-active" id="roleinfo">
-        <div class="modal-background" onclick="${roleInfoModal}"></div>
-        <div class="modal-card">
-          <div class="modal-card-body">
-            <div class="content">
-              <h2 class="title has-text-centered">Role information</h2>
-              <h3 class="subtitle has-text-centered">${role.n}</h3>
-              <p>
-                <strong>ID: </strong> <span>${role.i}</span>
-                <br><strong>Created: </strong> <span title="${new Date(role.t)}">${new Date(role.t).toLocaleString()}</span>
-                ${role.c !== '#000000' ? html`
-                  <br><strong>Color: </strong> <code>${role.c}</code>
-                  <br><strong style="${'color:' + role.c + ';'}">Color example: The quick brown fox jumps over the lazy dog!</strong>
-                ` : undefined}
-                <br><strong>Total members: </strong> <span>${role.m}</span>
-                ${role.h ? html`<br><strong>Hoisted: </strong> <span>${role.h}</span>` : undefined}
-                ${role.mg ? html`<br><strong>Managed: </strong> <span>${role.mg}</span>` : undefined}
-                ${role.me ? html`<br><strong>Mentionable: </strong> <span>${role.me}</span>` : undefined}
-                <br><strong>Permissions: </strong> <span>${role.p}</span>
-              </p>
+      if (role) {
+        document.getElementById('modals').appendChild(html`
+          <div class="modal is-active" id="roleinfo">
+            <div class="modal-background" onclick="${roleInfoModal}"></div>
+            <div class="modal-card">
+              <div class="modal-card-body">
+                <div class="content">
+                  <h2 class="title has-text-centered">Role information</h2>
+                  <h3 class="subtitle has-text-centered">${role.n || role.i + '?'}</h3>
+                  <p>
+                    ${role.i ? html`<strong>ID: </strong> <span>${role.i}</span><br>` : undefined}
+                    ${typeof role.t === 'number' ? html`<strong>Created: </strong> <span title="${new Date(role.t)}">${new Date(role.t).toLocaleString()}</span><br>` : undefined}
+                    ${role.c !== '#000000' ? html`
+                      <strong>Color: </strong> <code>${role.c}</code>
+                      <br><strong style="${'color:' + role.c + ';'}">Color example: The quick brown fox jumps over the lazy dog!</strong><br>
+                    ` : undefined}
+                    <strong>Total members: </strong> <span>${role.m}</span>
+                    ${role.h ? html`<br><strong>Hoisted: </strong> <span>${role.h}</span>` : undefined}
+                    ${role.mg ? html`<br><strong>Managed: </strong> <span>${role.mg}</span>` : undefined}
+                    ${role.me ? html`<br><strong>Mentionable: </strong> <span>${role.me}</span>` : undefined}
+                    <br><strong>Permissions: </strong> <span>${role.p}</span>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      `)
+        `)
+      }
     }
   }
 }
@@ -897,14 +907,14 @@ function guildInfoModal () {
                   ${guild.info.i ? html`<strong>ID: </strong> <span>${guild.info.i}</span><br>` : undefined}
                   <strong>Region: </strong> <span>${guild.info.re.replace('-', ' ').toUpperCase()}</span><br>
                   <strong>Created: </strong> <span title="${new Date(guild.info.t)}">${new Date(guild.info.t).toLocaleString()}</span><br>
-                  ${guild.info.o ? html`<strong>Owner: </strong> <a onclick="${memberInfoModal}" data-ind="${archive.generalData.usersInfo.findIndex(u => u.i === guild.info.o)}" data-i="${i}">${archive.generalData.usersInfo.find(u => u.i === guild.info.o).tg || guild.info.o}</a><br>` : undefined}
+                  ${guild.info.o ? html`<strong>Owner: </strong> <a onclick="${memberInfoModal}" data-ind="${guild.info.o}" data-i="${i}">${archive.generalData.usersInfo[guild.info.o].tg || guild.info.o}</a><br>` : undefined}
                   <strong>Total members: </strong> <span>${guild.info.m}</span><br>
                   ${guild.info.l ? html`<strong>Server is considered large by Discord.</strong><br>` : undefined}
                   <strong>Explicit content level: </strong> <span>${guild.info.e}</span><br>
                   <strong>Verification level: </strong> <span>${guild.info.v}</span><br>
                   <strong title="Sorted by position, from highest to lowest.">Roles (${archive.generalData.rolesInfo.length} total):</strong>
                   <span class="tags is-marginless">
-                    ${[...archive.generalData.rolesInfo].sort((a, b) => b.po - a.po).map(r => html`<span class="tag" title="${'Created ' + new Date(r.t).toLocaleString() + '.\nID: ' + r.i}"><a data-i="${i}" data-po="${r.po}" onclick="${roleInfoModal}" style="${'color:' + r.c + ';'}">${r.n}</a></span>`)}
+                    ${[...archive.generalData.rolesInfo].sort((a, b) => b.po - a.po).map(r => html`<span class="tag" title="${'Created ' + new Date(r.t).toLocaleString() + '.\nID: ' + r.i}"><a data-i="${i}" data-po="${r.po}" onclick="${roleInfoModal}" style="${'color:' + r.c + ';'}">${r.n || r.i + '?'}</a></span>`)}
                   </span>
                   ${guild.info.em && guild.info.em.length > 0 ? html`
                     <strong>Emojis (${guild.info.em.length} total):</strong>
@@ -1016,8 +1026,7 @@ function userImageLoader (data) {
   let archive = archiveCheckExists(i).fileList
   let user = archive.generalData.usersInfo[ind]
   if (archive.generalData.avatars.length > 0) {
-    let regex = new RegExp(`Downloads/Users/${ind}(\\.png$|\\.jpg$|\\.jpeg$|\\.gif$)`)
-    let compressedImageIndex = archive.generalData.avatars.findIndex(file => file.name.match(regex))
+    let compressedImageIndex = archive.generalData.avatars.findIndex(file => file.name.match(regexWithId(ind).userImage))
     if (compressedImageIndex > -1) {
       let image = archive.generalData.avatars[compressedImageIndex]
       if (image.async) {
@@ -1044,9 +1053,9 @@ function membersList (i) {
   roles.push(archive.generalData.rolesInfo.find(r => r.n === '@everyone'))
   roles = roles.filter(r => r.users && r.users.length > 0)
   return html`
-    <aside class="menu">
+    <aside class="menu is-marginless">
       ${roles.map(r => html`
-        <label class="menu-label">${r.n + ' - ' + r.users.length}</label>
+        <label class="menu-label" style="margin-left:.75rem;">${r.n + ' - ' + r.users.length}</label>
         <ul class="menu-list">
           ${r.users.map(num => { return { ind: num, n: archive.generalData.usersInfo[num].n, j: archive.generalData.usersInfo[num].j, t: archive.generalData.usersInfo[num].t, a: archive.generalData.usersInfo[num].a, b: archive.generalData.usersInfo[num].b } }).sort((a, b) => (a.n && b.n ? a.n.localeCompare(b.n) : (!a.n && b.n ? 1 : (a.n && !b.n ? -1 : 0)))).map(u => html`
             <li class="${(u.n && u.j ? true : (!u.n ? false : typeof u.j === 'number')) ? undefined : 'has-background-grey-lighter'}">
@@ -1084,7 +1093,7 @@ function loadArchive () {
         </div>
       </nav>
       <div class="columns is-mobile">
-        <div class="column is-2 is-paddingless" style="max-height:calc(100vh - 3.25rem);overflow-y:auto;">${channelsList(i)}</div>
+        <div class="column is-2 is-paddingless" style="max-height:calc(100vh - 3.25rem);overflow-y:auto;" id="channelslist">${channelsList(i)}</div>
         <div class="column is-8" style="max-height:calc(100vh - 3.25rem);overflow-y:auto;" id="chat"></div>
         <div class="column is-2 is-paddingless" style="height:calc(100vh - 3.25rem);overflow-y:auto;" id="chatmembers">${membersList(i)}</div>
       </div>
@@ -1484,13 +1493,11 @@ function parseZIPFiles (why) {
           })
         }).catch(e => {
           cachedFiles.splice(i, 1)
-          errors.push(e)
-          errorModal()
+          errorModal(e)
         })
       }).catch(e => {
         cachedFiles.splice(i, 1)
-        errors.push(e)
-        errorModal()
+        errorModal(e)
       })
       break
     }
@@ -1516,10 +1523,7 @@ function handleZIPFiles () {
     }
     // Push ZIP file to the cached files if not found.
     if (!found) cachedFiles.push({ file, fileList: {}, parsed: false, name: `${file.name}${file.lastModified}${file.size}${file.type}` })
-    else {
-      errors.push(new Error('File already found!'))
-      errorModal()
-    }
+    else errorModal(new Error('File already found!'))
   }
   // Parse ZIP file
   if (cachedFiles.filter(file => !file.parsed).length > 0) parseZIPFiles('Parsing a zip file by the name of ' + cachedFiles.filter(file => !file.parsed)[0].file.name)
@@ -1530,14 +1534,15 @@ function handleZIPFiles () {
 /**
  * Displays an error from the 'errors' array.
  */
-function errorModal () {
+function errorModal (err) {
+  if (err && err instanceof Error) errors.push(err)
   if (errors.length === 0) {
     if (document.getElementById('error')) document.getElementById('error').outerHTML = ''
     return parseZIPFiles('Looking for another ZIP file to parse after successfully displaying an error.')
   } else {
     let error = errors.splice(0, 1)[0] // Remove from storage.
     console.error(error)
-    document.getElementById('loader').outerHTML = ''
+    if (document.getElementById('loader')) document.getElementById('loader').outerHTML = ''
     document.getElementById('modals').appendChild(html`
       <div class="modal is-active" id="error">
         <div class="modal-background" onclick="${errorModal}"></div>
@@ -1547,7 +1552,7 @@ function errorModal () {
           </header>
           <div class="modal-card-body">
             <p>${error.message}</p>
-            ${error.stack ? html`<strong>(${error.stack.match(/[\w]+\.[\w]+:[0-9]+:[0-9]+/g).join(', ')}) Error stack:</strong><pre>${error.stack.replace(/Users\/[\w]+/g, '...')}</pre>` : undefined}
+            ${error.stack ? html`<strong>(${error.stack.match(/[<\w.]+[\w>]+:[0-9:]+/g).join(', ')}) Error stack:</strong><pre>${error.stack.replace(/Users\/[\w]+/g, '...')}</pre>` : undefined}
           </div>
         </div>
         <a class="modal-close" onclick="${errorModal}"></a>
@@ -1567,8 +1572,15 @@ function optionsModal () {
       <div class="modal is-active" id="options">
         <div class="modal-background" onclick="${optionsModal}"></div>
         <div class="modal-card">
+          <div class="modal-card-head">
+            <p class="modal-card-title">Options</p>
+          </div>
           <div class="modal-card-body">
-            <p>Hello world.</p>
+            ${options.map(option => option.renderHTML())}
+          </div>
+          <div class="modal-card-foot">
+            <button class="button is-success" onclick=${sidebarIcons.find(icon => icon.tooltip === 'Options').save}>Save options</button>
+            <button class="button is-danger" onclick=${sidebarIcons.find(icon => icon.tooltip === 'Options').reset}>Reset / Delete options</button>
           </div>
         </div>
         <a class="modal-close" onclick="${optionsModal}"></a>
@@ -1589,24 +1601,24 @@ const sidebarIcons = [
   {
     tooltip: 'Options',
     text: '⚙',
-    function: optionsModal
+    function: optionsModal,
+    save: function () {
+      let object = []
+      options.forEach(o => {
+        object.push({ uid: o.uid, values: o.values })
+      })
+      console.log(object)
+      window.localStorage.setItem('settings', JSON.stringify(object))
+      optionsModal()
+    },
+    reset: function () {
+      window.localStorage.removeItem('settings')
+      optionsModal()
+      messages.push(`<strong>Changes won't be visible until the page is reloaded.</strong>`)
+      toggleMessageModal()
+    }
   }
 ]
-
-const options = []
-// Load settings if it exists
-var loadedSettings = window.localStorage.getItem('settings')
-// If there are any saved settings, load them.
-if (loadedSettings) {
-  var json = JSON.parse(loadedSettings)
-  json.forEach(o => {
-    options.forEach((op, i) => {
-      if (op.uid === o.uid) {
-        options[i].v = o.v; options[i].c(options[i].v.findIndex(f => f.s === true))
-      }
-    })
-  })
-}
 
 // App initialization.
 initializeLayout(document.getElementById('app'))
