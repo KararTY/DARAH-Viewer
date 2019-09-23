@@ -1,10 +1,13 @@
+/* global options, html */
+
 'use strict'
+
 /**
  * TODO: ATTACHMENTS LOADING.
  * IMPLEMENT: Message searching.
  */
 
-let licenses = `<h3>Licenses</h3>
+const licenses = `<h3>Licenses</h3>
 <ul>
   <li><a href="#darah-viewer">DARAH Viewer - MIT License - Karar Al-Remahy</a></li>
   <li><a href="#lighterhtml">lighterhtml - ISC License - Andrea Giammarchi, @WebReflection</a></li>
@@ -89,7 +92,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.</p>
 `.trim()
 
-const { render, html } = window.lighterhtml
+const { render } = window.lighterhtml
 const ZIP = window.JSZip
 const moment = window.moment
 
@@ -197,7 +200,7 @@ function archiveCheckExists (i) {
 
   if (cachedFiles[i]) return cachedFiles[i]
   else {
-    let error = new Error("That archive doesn't exist. Maybe deleted?")
+    const error = new Error("That archive doesn't exist. Maybe deleted?")
     errorModal(error)
     throw error
   }
@@ -210,9 +213,9 @@ function toggleMessageModal () {
   if (messages.length === 0) {
     document.getElementById('message').outerHTML = ''
   } else {
-    let message = messages.splice(0, 1)[0] // Remove from storage.
+    const message = messages.splice(0, 1)[0] // Remove from storage.
     console.log(message.body || message.replace(/<[\w/ "-=]+>/gm, ''))
-    let htmlContent = html`
+    const htmlContent = html`
       <div class="modal is-active" id="message">
         <div class="modal-background" onclick="${message.deny || toggleMessageModal}"></div>
         <div class="modal-card">
@@ -245,12 +248,12 @@ function toggleMessageModal () {
  * Show channel settings modal.
  */
 function channelSettingsModal () {
-  let i = Number(this.dataset.i)
+  const i = Number(this.dataset.i)
   if (document.getElementById('channelsettings')) {
     document.getElementById('channelsettings').outerHTML = ''
   } else {
-    let archive = archiveCheckExists(i).fileList
-    let channel = archive.channels.find(c => c.info.orig === Number(this.dataset.ind))
+    const archive = archiveCheckExists(i).fileList
+    const channel = archive.channels.find(c => c.info.orig === Number(this.dataset.ind))
     if (channel) {
       document.getElementById('modals').appendChild(html`
         <div class="modal is-active" id="channelsettings">
@@ -292,10 +295,10 @@ function messageInfoModal () {
   if (document.getElementById('messageinfo')) {
     document.getElementById('messageinfo').outerHTML = ''
   } else {
-    let archive = archiveCheckExists(this.dataset.i).fileList
-    let channel = archive.channels[Number(this.dataset.c)]
-    let messages = channel.messageFiles[Number(this.dataset.f)].m
-    let message = messages[Number(this.dataset.ind)]
+    const archive = archiveCheckExists(this.dataset.i).fileList
+    const channel = archive.channels[Number(this.dataset.c)]
+    const messages = channel.messageFiles[Number(this.dataset.f)].m
+    const message = messages[Number(this.dataset.ind)]
     document.getElementById('modals').appendChild(html`
       <div class="modal is-active" id="messageinfo">
         <div class="modal-background" onclick="${messageInfoModal}"></div>
@@ -333,7 +336,7 @@ function imageModal () {
       <div class="modal is-active" id="imagemodal">
         <div class="modal-background" onclick="${imageModal}"></div>
         <div class="modal-content has-text-centered">
-          <a onclick="${() => { let win = window.open(); win.document.write('<iframe src="' + this.src + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>') }}"><img src="${this.src}"></a>
+          <a onclick="${() => { const win = window.open(); win.document.write('<iframe src="' + this.src + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>') }}"><img src="${this.src}"></a>
         </div>
         <a class="modal-close" onclick="${imageModal}"></a>
       </div>
@@ -357,14 +360,14 @@ function d (el, element) {
 function messageAttachmentLoader (data) {
   console.log('click')
   if (data instanceof MouseEvent) data.stopPropagation()
-  let element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
-  let i = element ? Number(element.dataset.i) : data.i
-  let archive = archiveCheckExists(i).fileList
-  let type = element ? element.dataset.type : data.type
-  let name = element ? element.dataset.name : data.name
-  let channel = element ? Number(element.dataset.c) : data.channel
-  let contentIndex = archive.channels[channel][type].findIndex(file => file.name === name)
-  let content = archive.channels[channel][type][contentIndex]
+  const element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
+  const i = element ? Number(element.dataset.i) : data.i
+  const archive = archiveCheckExists(i).fileList
+  const type = element ? element.dataset.type : data.type
+  const name = element ? element.dataset.name : data.name
+  const channel = element ? Number(element.dataset.c) : data.channel
+  const contentIndex = archive.channels[channel][type].findIndex(file => file.name === name)
+  const content = archive.channels[channel][type][contentIndex]
   if (content.async) {
     if (['videos', 'audios'].includes(type)) {
       element.removeEventListener('click', messageAttachmentLoader)
@@ -401,14 +404,14 @@ function messageAttachmentLoader (data) {
  * @param {*} msg
  */
 function messageAttachmentRenderer (i, c, msg) {
-  let archive = archiveCheckExists(i).fileList
-  let attachments = msg.c.a.map(attachment => `[${attachment.i}]${attachment.n || ''}`).map((attachment, ind, arr) => {
+  const archive = archiveCheckExists(i).fileList
+  const attachments = msg.c.a.map(attachment => `[${attachment.i}]${attachment.n || ''}`).map((attachment, ind, arr) => {
     let htmlContent
-    let img = archive.channels[c].images.find(file => file.name.includes(attachment))
-    let vid = archive.channels[c].videos.find(file => file.name.includes(attachment))
-    let snd = archive.channels[c].audios.find(file => file.name.includes(attachment))
-    let doc = archive.channels[c].documents.find(file => file.name.includes(attachment))
-    let misc = archive.channels[c].miscs.find(file => file.name.includes(attachment))
+    const img = archive.channels[c].images.find(file => file.name.includes(attachment))
+    const vid = archive.channels[c].videos.find(file => file.name.includes(attachment))
+    const snd = archive.channels[c].audios.find(file => file.name.includes(attachment))
+    const doc = archive.channels[c].documents.find(file => file.name.includes(attachment))
+    const misc = archive.channels[c].miscs.find(file => file.name.includes(attachment))
     if (img) {
       htmlContent = html`
         <div class="embed" onclick="${messageAttachmentLoader}">
@@ -559,15 +562,15 @@ function messageEmbedRenderer (i, msg) {
  */
 function emojiconLoader (data) {
   if (data instanceof MouseEvent) data.stopPropagation()
-  let element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
-  let i = element ? Number(element.dataset.i) : data.i
-  let ind = element ? Number(element.dataset.ind) : data.ind
-  let archive = archiveCheckExists(i).fileList
-  let emoji = archive.generalData.emojisInfo[ind]
+  const element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
+  const i = element ? Number(element.dataset.i) : data.i
+  const ind = element ? Number(element.dataset.ind) : data.ind
+  const archive = archiveCheckExists(i).fileList
+  const emoji = archive.generalData.emojisInfo[ind]
   if (archive.generalData.emojis.length > 0) {
-    let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regexWithId(ind).emoji))
+    const compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regexWithId(ind).emoji))
     if (compressedEmojiIndex > -1) {
-      let emoji = archive.generalData.emojis[compressedEmojiIndex]
+      const emoji = archive.generalData.emojis[compressedEmojiIndex]
       if (emoji.async) {
         emoji.async('base64').then(res => {
           archive.generalData.emojis[compressedEmojiIndex] = {
@@ -582,9 +585,9 @@ function emojiconLoader (data) {
 }
 
 function emojiconRender (i, eID) {
-  let archive = archiveCheckExists(i).fileList
-  let emoji = archive.generalData.emojisInfo[eID]
-  let compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regexWithId(eID).emoji))
+  const archive = archiveCheckExists(i).fileList
+  const emoji = archive.generalData.emojisInfo[eID]
+  const compressedEmojiIndex = archive.generalData.emojis.findIndex(file => file.name.match(regexWithId(eID).emoji))
   return ((emoji && compressedEmojiIndex > -1) ? `<span class="icon" title="${emoji.n}"><img src=" " data-i="${i}" data-ind="${eID}" data-e="lorem"></span>` : undefined) || `:${emoji.n || eID}:`
 }
 
@@ -595,8 +598,8 @@ function emojiconRender (i, eID) {
  * @returns {[DocumentFragment]}
  */
 function messageReactionsRenderer (i, msg) {
-  let archive = archiveCheckExists(i).fileList
-  let emojis = archive.generalData.emojisInfo
+  const archive = archiveCheckExists(i).fileList
+  const emojis = archive.generalData.emojisInfo
   return html`
     <div class="field is-grouped is-grouped-multiline">
       ${msg.c.r.map(r => html`
@@ -641,40 +644,40 @@ function typeRenderer (type) {
  * @return {String}
  */
 function messageRenderer (i, msgC, type) {
-  let archive = archiveCheckExists(i).fileList
+  const archive = archiveCheckExists(i).fileList
 
   msgC = msgC.replace(/</g, '&lt;')
   msgC = msgC.replace(/>/g, '&gt;')
   msgC = msgC.replace(/\//g, '&#47;')
   msgC = msgC.replace(/\\/g, '&#92;')
 
-  let users = msgC.match(/&lt;@[0-9]+&gt;/g)
+  const users = msgC.match(/&lt;@[0-9]+&gt;/g)
   if (users) {
     users.forEach(u => {
-      let uID = Number(u.replace(/[^0-9]/g, ''))
+      const uID = Number(u.replace(/[^0-9]/g, ''))
       if (archive.generalData.usersInfo[uID]) msgC = msgC.replace(u, `<a data-i="${i}" data-ind="${uID}" data-u="lorem">@${archive.generalData.usersInfo[uID].n || uID}</a>`)
       else msgC = msgC.replace(u, '&lt;@unknown-user&gt;')
     })
   }
-  let channels = msgC.match(/&lt;#[0-9]+&gt;/g)
+  const channels = msgC.match(/&lt;#[0-9]+&gt;/g)
   if (channels) {
     channels.forEach(c => {
-      let cID = Number(c.replace(/[^0-9]/g, ''))
+      const cID = Number(c.replace(/[^0-9]/g, ''))
       if (archive.generalData.channels.c[cID]) msgC = msgC.replace(c, `<a data-i="${i}" data-ind="${cID}" data-c="lorem">#${archive.generalData.channels.c[cID].n || cID}</a>`)
       else msgC = msgC.replace(c, '&lt;#unknown-channel&gt;')
     })
   }
-  let emoji = msgC.match(/&lt;?:[0-9]+:&gt;?/g)
+  const emoji = msgC.match(/&lt;?:[0-9]+:&gt;?/g)
   if (emoji) {
     emoji.forEach(e => {
-      let eID = Number(e.replace(/[^0-9]/g, ''))
+      const eID = Number(e.replace(/[^0-9]/g, ''))
       msgC = msgC.replace(e, emojiconRender(i, eID))
     })
   }
-  let roles = msgC.match(/&lt;&[0-9]+&gt;/g)
+  const roles = msgC.match(/&lt;&[0-9]+&gt;/g)
   if (roles) {
     roles.forEach(r => {
-      let rID = Number(r.replace(/[^0-9]/g, ''))
+      const rID = Number(r.replace(/[^0-9]/g, ''))
       if (archive.generalData.rolesInfo[rID]) msgC = msgC.replace(r, `<a data-i="${i}" data-po="${archive.generalData.rolesInfo[rID].po}" data-r="lorem"><span style="color:${getRoleColor({ i, ind: rID })};">@${archive.generalData.rolesInfo[rID].n}</span></a>`)
       else msgC = msgC.replace(r, '&lt;#unknown-role&gt;')
     })
@@ -732,15 +735,15 @@ function messageRenderer (i, msgC, type) {
  */
 function loadChat (data) {
   document.getElementById('chat').innerHTML = ''
-  let i = typeof data.i === 'number' ? data.i : Number(this.dataset.i)
-  let c = typeof data.c === 'number' ? data.c : Number(this.dataset.c)
-  let f = typeof data.f === 'number' ? data.f : Number(this.dataset.f)
-  let msgCount = typeof data.msgCount === 'number' ? data.msgCount : Number(this.dataset.msgcount)
+  const i = typeof data.i === 'number' ? data.i : Number(this.dataset.i)
+  const c = typeof data.c === 'number' ? data.c : Number(this.dataset.c)
+  const f = typeof data.f === 'number' ? data.f : Number(this.dataset.f)
+  const msgCount = typeof data.msgCount === 'number' ? data.msgCount : Number(this.dataset.msgcount)
 
-  let archive = archiveCheckExists(i).fileList
-  let channel = archive.channels[c]
-  let messages = channel.messageFiles[f].m.slice(msgCount, (msgCount + 100)).reverse()
-  let messageContainer = html`
+  const archive = archiveCheckExists(i).fileList
+  const channel = archive.channels[c]
+  const messages = channel.messageFiles[f].m.slice(msgCount, (msgCount + 100)).reverse()
+  const messageContainer = html`
     ${channel.messageFiles[f].m.length - (msgCount + 100) > 0 ? html`<p class="has-text-centered"><a class="button" data-i="${i}" data-c="${c}" data-f="${f}" data-msgcount="${msgCount + 100}" onclick="${loadChat}">Load older...</a></p>` : undefined}
     ${messages.map((msg, ind, arr) => html`
       <div class="media">
@@ -751,7 +754,7 @@ function loadChat (data) {
         </div>
         <div class="media-content content">
           <a onclick="${memberInfoModal}" data-i="${i}" data-ind="${msg.u}"><strong title="${archive.generalData.usersInfo[msg.u].tg}" style="${'color:' + getTopUserRole({ i, ind: msg.u }).c + ';'}">${archive.generalData.usersInfo[msg.u].n || msg.u}</strong></a>
-          <small title="${new Date(msg.t).toLocaleString() + (msg.e ? ', edited ' + new Date(msg.e).toLocaleString() : '')}">${moment(msg.t).fromNow()} ${msg.e ? `(edited)` : undefined}</small>
+          <small title="${new Date(msg.t).toLocaleString() + (msg.e ? ', edited ' + new Date(msg.e).toLocaleString() : '')}">${moment(msg.t).fromNow()} ${msg.e ? '(edited)' : undefined}</small>
           <a class="button is-light is-pulled-right" onclick="${messageInfoModal}" data-i="${i}" data-c="${c}" data-f="${f}" data-ind="${msgCount + ((arr.length > 0 ? arr.length - 1 : 0) - ind)}">≡</a>
           <p class="is-marginless" style="white-space:pre-wrap;">${msg.c.m.length > 0 ? messageRenderer(i, msg.c.m) : ' '}</p>
           ${msg.ty ? html`<p class="is-marginless" style="white-space:pre-wrap;">${typeRenderer(msg.ty)}</p>` : undefined}
@@ -772,12 +775,12 @@ function loadChat (data) {
  * Load the channel.
  */
 function loadChannel () {
-  let i = Number(this.dataset.i)
+  const i = Number(this.dataset.i)
   let f = Number(this.dataset.f)
   if (!Number.isNaN(i)) {
-    let archive = archiveCheckExists(i).fileList
-    let channelIndex = archive.channels.findIndex(c => c.info.orig === Number(this.dataset.ind))
-    let channel = archive.channels[channelIndex]
+    const archive = archiveCheckExists(i).fileList
+    const channelIndex = archive.channels.findIndex(c => c.info.orig === Number(this.dataset.ind))
+    const channel = archive.channels[channelIndex]
     if (channel) {
       if (document.getElementById('channelsettings')) document.getElementById('channelsettings').outerHTML = ''
       if (Number.isNaN(f)) f = typeof channel.selectedSplit === 'number' ? channel.selectedSplit : 0
@@ -811,26 +814,30 @@ function loadChannel () {
  * @returns {HTMLElement}
  */
 function channelsList (i) {
-  let archive = archiveCheckExists(i).fileList
-  let parentChannels = archive.generalData.channels.p.filter((v, i, a) => a.map(i => i.po).indexOf(v.po) === i)
-  parentChannels = parentChannels.map((pc, ind) => {
-    return {
-      ...pc,
-      chs: archive.generalData.channels.c.filter(c => c.pa === ind).sort((a, b) => a.po - b.po)
-    }
-  }).sort((a, b) => a.po - b.po)
+  const archive = archiveCheckExists(i).fileList
+  let parentChannels
+  if (archive.generalData.channels.p) {
+    parentChannels = archive.generalData.channels.p.filter((v, i, a) => a.map(i => i.po).indexOf(v.po) === i)
+    parentChannels = parentChannels.map((pc, ind) => {
+      return {
+        ...pc,
+        chs: archive.generalData.channels.c.filter(c => c.pa === ind).sort((a, b) => a.po - b.po)
+      }
+    }).sort((a, b) => a.po - b.po)
+  }
+
   return html`
     <aside class="menu is-marginless">
       ${archive.generalData.channels.c.filter(c => typeof c.pa !== 'number').length > 0 ? html`
         <ul class="menu-list">
-          ${archive.generalData.channels.c.filter(c => typeof c.pa !== 'number').sort((a, b) => a.po - b.po).map(c => html`<li>${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? html`<a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>` : html`<a class="has-background-grey-lighter">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>`}</li>`)}
+          ${archive.generalData.channels.c.filter(c => typeof c.pa !== 'number').sort((a, b) => a.po - b.po).map(c => html`<li><a data-i="${i}" data-ind=${c.orig} class="${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? undefined : 'has-background-grey-lighter'}" onclick="${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? loadChannel : undefined}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a></li>`)}
         </ul>
         <br>
       ` : undefined}
-      ${parentChannels.map((pc, ind) => html`
+      ${parentChannels && parentChannels.map((pc, ind) => html`
         <label class="menu-label" style="margin-left:.75rem;">${pc.n || ind}</label>
         <ul class="menu-list">
-          ${pc.chs.map(c => html`<li>${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? html`<a data-i="${i}" data-ind=${c.orig} onclick="${loadChannel}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>` : html`<a class="has-background-grey-lighter">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a>`}</li>`)}
+          ${pc.chs.map(c => html`<li><a data-i="${i}" class="${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? undefined : 'has-background-grey-lighter'}" data-ind=${c.orig} onclick="${archive.channels[archive.channels.findIndex(ch => ch.info.orig === c.orig)] ? loadChannel : undefined}">${(c.ty === 'text' ? '#' : '🔊') + (c.n || c.orig)}</a></li>`)}
         </ul>
       `)}
     </aside>
@@ -842,13 +849,13 @@ function channelsList (i) {
  * @param {{ i: Number, po: Number }} data
  */
 function roleInfoModal () {
-  let i = Number(this.dataset.i)
+  const i = Number(this.dataset.i)
   if (typeof i === 'number') {
     if (document.getElementById('roleinfo')) {
       document.getElementById('roleinfo').outerHTML = ''
     } else {
-      let archive = archiveCheckExists(i).fileList
-      let role = archive.generalData.rolesInfo.find(r => r.po === Number(this.dataset.po))
+      const archive = archiveCheckExists(i).fileList
+      const role = archive.generalData.rolesInfo.find(r => r.po === Number(this.dataset.po))
       if (role) {
         document.getElementById('modals').appendChild(html`
           <div class="modal is-active" id="roleinfo">
@@ -885,13 +892,13 @@ function roleInfoModal () {
  * Show guild info modal.
  */
 function guildInfoModal () {
-  let i = Number(this.dataset.i)
+  const i = Number(this.dataset.i)
   if (typeof i === 'number') {
     if (document.getElementById('guildinfo')) {
       document.getElementById('guildinfo').outerHTML = ''
     } else {
-      let archive = archiveCheckExists(i).fileList
-      let guild = archive.generalData.guild
+      const archive = archiveCheckExists(i).fileList
+      const guild = archive.generalData.guild
       document.getElementById('modals').appendChild(html`
         <div class="modal is-active" id="guildinfo">
         <div class="modal-background" onclick="${guildInfoModal}"></div>
@@ -947,7 +954,7 @@ function guildInfoModal () {
  * @returns {Object}
  */
 function getTopUserRole (data) {
-  let archive = archiveCheckExists(data.i).fileList
+  const archive = archiveCheckExists(data.i).fileList
   let roles = archive.generalData.usersInfo[data.ind].r
   if (!roles) roles = [archive.generalData.rolesInfo.findIndex(r => r.n === '@everyone')]
   if (roles) roles = roles.map(r => archive.generalData.rolesInfo[r])
@@ -960,7 +967,7 @@ function getTopUserRole (data) {
  * @returns {Array}
  */
 function getUserRoles (data) {
-  let archive = archiveCheckExists(data.i).fileList
+  const archive = archiveCheckExists(data.i).fileList
   let roles = archive.generalData.usersInfo[data.ind].r
   if (!roles) roles = [archive.generalData.rolesInfo.findIndex(r => r.n === '@everyone')]
   return roles
@@ -971,8 +978,8 @@ function getUserRoles (data) {
  * @param {{ i: Number, ind: Number }} data
  */
 function getRoleColor (data) {
-  let archive = archiveCheckExists(data.i).fileList
-  let roleColor = archive.generalData.rolesInfo[data.ind].c
+  const archive = archiveCheckExists(data.i).fileList
+  const roleColor = archive.generalData.rolesInfo[data.ind].c
   return roleColor
 }
 
@@ -983,10 +990,10 @@ function memberInfoModal () {
   if (document.getElementById('userinfo')) {
     document.getElementById('userinfo').outerHTML = ''
   } else {
-    let i = Number(this.dataset.i)
-    let ind = Number(this.dataset.ind)
-    let archive = archiveCheckExists(i).fileList
-    let user = archive.generalData.usersInfo[ind]
+    const i = Number(this.dataset.i)
+    const ind = Number(this.dataset.ind)
+    const archive = archiveCheckExists(i).fileList
+    const user = archive.generalData.usersInfo[ind]
     // TODO, add msg count for user.
     document.getElementById('modals').appendChild(html`
       <div class="modal is-active" id="userinfo">
@@ -1020,15 +1027,15 @@ function memberInfoModal () {
  */
 function userImageLoader (data) {
   if (data instanceof MouseEvent) data.stopPropagation()
-  let element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
-  let i = element ? Number(element.dataset.i) : data.i
-  let ind = element ? Number(element.dataset.ind) : data.ind
-  let archive = archiveCheckExists(i).fileList
-  let user = archive.generalData.usersInfo[ind]
+  const element = this.dataset && this.dataset.i ? this : (this.querySelector ? this.querySelector('img') : false)
+  const i = element ? Number(element.dataset.i) : data.i
+  const ind = element ? Number(element.dataset.ind) : data.ind
+  const archive = archiveCheckExists(i).fileList
+  const user = archive.generalData.usersInfo[ind]
   if (archive.generalData.avatars.length > 0) {
-    let compressedImageIndex = archive.generalData.avatars.findIndex(file => file.name.match(regexWithId(ind).userImage))
+    const compressedImageIndex = archive.generalData.avatars.findIndex(file => file.name.match(regexWithId(ind).userImage))
     if (compressedImageIndex > -1) {
-      let image = archive.generalData.avatars[compressedImageIndex]
+      const image = archive.generalData.avatars[compressedImageIndex]
       if (image.async) {
         image.async('base64').then(res => {
           archive.generalData.avatars[compressedImageIndex] = {
@@ -1048,7 +1055,7 @@ function userImageLoader (data) {
  * @returns {HTMLElement}
  */
 function membersList (i) {
-  let archive = archiveCheckExists(i).fileList
+  const archive = archiveCheckExists(i).fileList
   let roles = JSON.parse(JSON.stringify(archive.generalData.rolesInfo)).sort((a, b) => b.po - a.po).filter(r => r.h)
   roles.push(archive.generalData.rolesInfo.find(r => r.n === '@everyone'))
   roles = roles.filter(r => r.users && r.users.length > 0)
@@ -1080,9 +1087,9 @@ function membersList (i) {
  * Loads the archive.
  */
 function loadArchive () {
-  let i = Number(this.dataset.i)
+  const i = Number(this.dataset.i)
   if (typeof i === 'number') {
-    let archive = archiveCheckExists(i).fileList
+    const archive = archiveCheckExists(i).fileList
     loadingModal({ title: `Loading ${archive.generalData.guild.info.n}` })
     render(document.getElementById('content'), () => html`
       <nav class="navbar is-dark" style="margin:-.75rem;margin-top:0;margin-bottom:.75rem;">
@@ -1107,16 +1114,16 @@ function loadArchive () {
  * @param {MouseEvent} e
  */
 function loadSelectedTypes (e) {
-  let i = Number(e.target.dataset.i)
-  let archive = archiveCheckExists(i)
+  const i = Number(e.target.dataset.i)
+  const archive = archiveCheckExists(i)
   // Read form
-  let form = document.forms['selectedTypes']
-  let selectedChannels = []
-  let selectedLoadImages = []
-  let selectedLoadAudios = []
-  let selectedLoadVideos = []
-  let selectedLoadDocuments = []
-  let selectedLoadMiscs = []
+  const form = document.forms.selectedTypes
+  const selectedChannels = []
+  const selectedLoadImages = []
+  const selectedLoadAudios = []
+  const selectedLoadVideos = []
+  const selectedLoadDocuments = []
+  const selectedLoadMiscs = []
   for (let ind = 0; ind < form.elements.length; ind++) {
     const e = form.elements[ind]
     if (!e.checked) continue
@@ -1145,20 +1152,20 @@ function loadSelectedTypes (e) {
   // Load ZIP file
   if (selectedChannels.length > 0) {
     // Remove non selected channels.
-    let filteredChannels = this.channels.filter(channel => selectedChannels.map(o => o.po).includes(channel.info.po))
+    const filteredChannels = this.channels.filter(channel => selectedChannels.map(o => o.po).includes(channel.info.po))
     this.channels = filteredChannels
     // Remove non selected splits.
     for (let index = 0; index < this.channels.length; index++) {
       const channel = this.channels[index]
-      let filteredMessageFiles = channel.messageFiles.filter(msgFile => {
+      const filteredMessageFiles = channel.messageFiles.filter(msgFile => {
         // Filter selectedChannelSplits to currently looping channel.
-        let a = selectedChannels.filter(split => split.po === channel.info.po)
+        const a = selectedChannels.filter(split => split.po === channel.info.po)
         // Turn it into an array of splits.
-        let b = a.map(o => o.split)
+        const b = a.map(o => o.split)
         // Get the current split number.
-        let c = msgFile.name.match(/_[0-9]+\.json$/)[0].replace(/[^0-9]/g, '')
+        const c = msgFile.name.match(/_[0-9]+\.json$/)[0].replace(/[^0-9]/g, '')
         // Check b array with current split number.
-        let d = b.includes(c)
+        const d = b.includes(c)
         return d
       })
       // Remove splits here.
@@ -1175,29 +1182,29 @@ function loadSelectedTypes (e) {
       if (!selectedLoadMiscs.includes(channel.info.po)) this.channels[index].miscs = []
     }
     // Remove avatars
-    if (!form.elements['avatars'] || !form.elements['avatars'].checked) this.generalData.avatars = []
+    if (!form.elements.avatars || !form.elements.avatars.checked) this.generalData.avatars = []
     // Remove emojis
-    if (!form.elements['emojis'] || !form.elements['emojis'].checked) this.generalData.emojis = []
+    if (!form.elements.emojis || !form.elements.emojis.checked) this.generalData.emojis = []
     // Load them into fileList.
     archive.fileList = this
     // It's now parsed and ready to display in the sidebar.
     archive.parsed = true
     // Sort userIDs into roles.
     for (let ind = 0; ind < archive.fileList.generalData.usersInfo.length; ind++) {
-      let user = archive.fileList.generalData.usersInfo[ind]
+      const user = archive.fileList.generalData.usersInfo[ind]
       if (user.r) {
-        let role = user.r.map(r => archive.fileList.generalData.rolesInfo[r]).sort((a, b) => b.po - a.po).filter(r => r.h)[0]
+        const role = user.r.map(r => archive.fileList.generalData.rolesInfo[r]).sort((a, b) => b.po - a.po).filter(r => r.h)[0]
         if (role) {
           if (!role.users) role.users = []
           role.users.push(ind)
         } else {
-          let defaultRole = archive.fileList.generalData.rolesInfo.find(r => r.n === '@everyone')
+          const defaultRole = archive.fileList.generalData.rolesInfo.find(r => r.n === '@everyone')
           if (!defaultRole.users) defaultRole.users = []
           defaultRole.users.push(ind)
         }
-      } else if (archive.fileList.generalData.rolesInfo.length > 0) {
+      } else if (archive.fileList.generalData.rolesInfo && archive.fileList.generalData.rolesInfo.length > 0) {
         // Deleted / Left user, maybe.
-        let defaultRole = archive.fileList.generalData.rolesInfo.find(r => r.n === '@everyone')
+        const defaultRole = archive.fileList.generalData.rolesInfo.find(r => r.n === '@everyone')
         if (!defaultRole.users) defaultRole.users = []
         defaultRole.users.push(ind)
       }
@@ -1207,7 +1214,10 @@ function loadSelectedTypes (e) {
     // Initialize default values for anonymized archives.
     if (!archive.fileList.generalData.guild.info.n) archive.fileList.generalData.guild.info.n = ' '
     if (!archive.fileList.generalData.guild.info.a) archive.fileList.generalData.guild.info.a = ' '
-    if (archive.fileList.generalData.rolesInfo.length === 0) archive.fileList.generalData.rolesInfo.push({ n: '@everyone', po: 0, users: archive.fileList.generalData.usersInfo.map((i, ind) => ind) })
+    if (!archive.fileList.generalData.rolesInfo || archive.fileList.generalData.rolesInfo.length === 0) {
+      if (!archive.fileList.generalData.rolesInfo) archive.fileList.generalData.rolesInfo = []
+      archive.fileList.generalData.rolesInfo.push({ n: '@everyone', po: 0, users: archive.fileList.generalData.usersInfo.map((i, ind) => ind) })
+    }
     archive.fileList.generalData.usersInfo.forEach(user => {
       if (!user.r) user.r = [0]
     })
@@ -1257,24 +1267,24 @@ function parseZIPFiles (why) {
       loadingModal({ title: `Loading file ${cachedFile.file.name} into memory...` })
 
       // Load ZIP file
-      let zipFile = new ZIP()
+      const zipFile = new ZIP()
       zipFile.loadAsync(cachedFile.file).then(content => {
-        let files = Object.entries(content.files).sort((a, b) => {
+        const files = Object.entries(content.files).sort((a, b) => {
           return a[1].name.localeCompare(b[1].name)
         }).map(file => file[1])
 
-        let channels = files.filter(file => {
+        const channels = files.filter(file => {
           if (file.name.startsWith('[CHANNEL]')) return true
           else return false
         })
 
-        loadingModal({ title: `Decompressing [INFO]channels.json into readable text...` })
+        loadingModal({ title: 'Decompressing [INFO]channels.json into readable text...' })
 
         zipFile.file('[INFO]channels.json').async('string').then(res => {
-          let channelsInfo = JSON.parse(res)
-          let sortedChannels = []
+          const channelsInfo = JSON.parse(res)
+          const sortedChannels = []
           channels.forEach((channel) => {
-            let channelInFile = channelsInfo.c.find(ch => ch.ty === 'text' && ch.po === Number(channel.name.match(/\([0-9]+\)/)[0].replace(/[^0-9]/g, '')))
+            const channelInFile = channelsInfo.c.find(ch => ['text', 'group', 'dm'].includes(ch.ty) && ch.po === Number(channel.name.match(/\([0-9]+\)/)[0].replace(/[^0-9]/g, '')))
 
             if (sortedChannels.findIndex(sch => sch.po === channelInFile.po) === -1) {
               try {
@@ -1285,11 +1295,11 @@ function parseZIPFiles (why) {
               }
             } else sortedChannels[sortedChannels.findIndex(sch => sch.po === channelInFile.po)].channelMessages.push(channel)
           })
-          let parsedChannelsInfo = sortedChannels.map(i => {
-            let firstFile = i.channelMessages[0]
-            let channel = channelsInfo.c.find(channel => channel.ty === 'text' && channel.po === Number(firstFile.name.match(/\([0-9]+\)/)[0].replace(/[^0-9]/g, '')))
-            let channelFiles = files.filter(file => file.name.includes(`Downloads/Channels/${channel.po}/`) && file.name.replace(`Downloads/Channels/${channel.po}/`, '').length > 0)
-            let returnObject = {
+          const parsedChannelsInfo = sortedChannels.map(i => {
+            const firstFile = i.channelMessages[0]
+            const channel = channelsInfo.c.find(channel => ['text', 'group', 'dm'].includes(channel.ty) && channel.po === Number(firstFile.name.match(/\([0-9]+\)/)[0].replace(/[^0-9]/g, '')))
+            const channelFiles = files.filter(file => file.name.includes(`Downloads/Channels/${channel.po}/`) && file.name.replace(`Downloads/Channels/${channel.po}/`, '').length > 0)
+            const returnObject = {
               name: `(${channel.ty.toUpperCase()}) ${channel.n || channel.po}`,
               messageFiles: i.channelMessages,
               info: channel,
@@ -1315,7 +1325,7 @@ function parseZIPFiles (why) {
             }
             return returnObject
           })
-          let generalData = {
+          const generalData = {
             avatars: files.filter(file => file.name.includes('Downloads/Users/') && file.name.replace('Downloads/Users/', '').length > 0),
             emojis: files.filter(file => file.name.includes('Downloads/Emojis/') && file.name.replace('Downloads/Emojis/', '').length > 0),
             emojisInfo: files.find(file => file.name === '[INFO]emojis.json'),
@@ -1329,9 +1339,9 @@ function parseZIPFiles (why) {
             }
           }
 
-          loadingModal({ title: `Decompressing guild info, emojis info, users info, roles info and guild icon...` })
+          loadingModal({ title: 'Decompressing guild info, emojis info, users info, roles info and guild icon...' })
 
-          let prom = []
+          const prom = []
           // Load guild info
           prom.push(new Promise((resolve, reject) => {
             generalData.guild.info.async('string').then(res => {
@@ -1509,13 +1519,13 @@ function parseZIPFiles (why) {
  * @param {Element} e
  */
 function handleZIPFiles () {
-  let files = this.files
+  const files = this.files
   for (var i = 0; i < files.length; i++) {
-    let file = files[i]
+    const file = files[i]
 
     let found = false
     for (let i = 0; i < cachedFiles.length; i++) {
-      let archive = archiveCheckExists(i)
+      const archive = archiveCheckExists(i)
       if (archive.name === `${file.name}${file.lastModified}${file.size}${file.type}`) {
         found = true
         break
@@ -1540,7 +1550,7 @@ function errorModal (err) {
     if (document.getElementById('error')) document.getElementById('error').outerHTML = ''
     return parseZIPFiles('Looking for another ZIP file to parse after successfully displaying an error.')
   } else {
-    let error = errors.splice(0, 1)[0] // Remove from storage.
+    const error = errors.splice(0, 1)[0] // Remove from storage.
     console.error(error)
     if (document.getElementById('loader')) document.getElementById('loader').outerHTML = ''
     document.getElementById('modals').appendChild(html`
@@ -1603,7 +1613,7 @@ const sidebarIcons = [
     text: '⚙',
     function: optionsModal,
     save: function () {
-      let object = []
+      const object = []
       options.forEach(o => {
         object.push({ uid: o.uid, values: o.values })
       })
@@ -1614,7 +1624,7 @@ const sidebarIcons = [
     reset: function () {
       window.localStorage.removeItem('settings')
       optionsModal()
-      messages.push(`<strong>Changes won't be visible until the page is reloaded.</strong>`)
+      messages.push('<strong>Changes won\'t be visible until the page is reloaded.</strong>')
       toggleMessageModal()
     }
   }

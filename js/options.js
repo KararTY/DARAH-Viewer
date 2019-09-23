@@ -1,10 +1,13 @@
 'use strict'
+
+const { html } = window.lighterhtml
+
 let uID = 0
 
 const types = {
-  'CHECKBOX': 0,
-  'RADIOBUTTONS': 1,
-  'SELECTIONS': 2/*,
+  CHECKBOX: 0,
+  RADIOBUTTONS: 1,
+  SELECTIONS: 2/*,
   'INPUT': 3 */
 }
 
@@ -15,19 +18,21 @@ class DARAHOptions {
     this.description = description
     this.type = type || types.CHECKBOX
     this.values = values
-    this.updateFunction = updateFunction || new Error(`This function hasn't been set.`)
+    this.updateFunction = updateFunction || new Error("This function hasn't been set.")
     this.inputValidator = inputValidator || this.inputValidator
   }
+
   inputValidator (value) {
     switch (this.type) {
       case types.CHECKBOX:
         if (typeof value === 'boolean') return true
         else {
-          let error = new TypeError(`Value "${value}" for option "${this.name}" is not a valid boolean value.`)
+          const error = new TypeError(`Value "${value}" for option "${this.name}" is not a valid boolean value.`)
           throw error
         }
     }
   }
+
   renderHTML () {
     let htmlContent
     switch (this.type) {
@@ -83,12 +88,12 @@ const options = [
     type: types.CHECKBOX,
     values: false,
     updateFunction: function (event) {
-      let value = typeof event === 'boolean' ? event : event.target.checked
+      const value = typeof event === 'boolean' ? event : event.target.checked
       if (this.inputValidator(value)) {
         if (value) {
-          let hideChatMembers = document.createElement('style')
+          const hideChatMembers = document.createElement('style')
           hideChatMembers.id = 'hidechatmembers'
-          let css = document.createTextNode(`#chatmembers { display: none; } #chat.is-8 { flex: unset; width: 100%; }`)
+          const css = document.createTextNode('#chatmembers { display: none; } #chat.is-8 { flex: unset; width: 100%; }')
           hideChatMembers.appendChild(css)
           document.getElementsByTagName('head')[0].appendChild(hideChatMembers)
         } else if (document.getElementById('hidechatmembers')) {
@@ -105,12 +110,12 @@ const options = [
     type: types.CHECKBOX,
     values: false,
     updateFunction: function (event) {
-      let value = typeof event === 'boolean' ? event : event.target.checked
+      const value = typeof event === 'boolean' ? event : event.target.checked
       if (this.inputValidator(value)) {
         if (value) {
-          let hideChannelsList = document.createElement('style')
+          const hideChannelsList = document.createElement('style')
           hideChannelsList.id = 'hidechannelslist'
-          let css = document.createTextNode(`#channelslist { display: none; } #chat.is-8 { flex: unset; width: 100%; }`)
+          const css = document.createTextNode('#channelslist { display: none; } #chat.is-8 { flex: unset; width: 100%; }')
           hideChannelsList.appendChild(css)
           document.getElementsByTagName('head')[0].appendChild(hideChannelsList)
         } else if (document.getElementById('hidechannelslist')) {
@@ -122,10 +127,10 @@ const options = [
   })
 ]
 // Load settings if it exists
-let loadedSettings = window.localStorage.getItem('settings')
+const loadedSettings = window.localStorage.getItem('settings')
 // If there are any saved settings, load them.
 if (loadedSettings) {
-  let json = JSON.parse(loadedSettings)
+  const json = JSON.parse(loadedSettings)
   json.forEach(o => {
     options.forEach((op, i) => {
       if (op.uid === o.uid) {
