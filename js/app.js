@@ -113,11 +113,12 @@ const errors = []
  */
 const messages = []
 
+// TODO
 /**
  * Storage for content blobs.
  * [{ "positionInCachedFiles": [Blob, ...] }]
  */
-const loadedContent = {}
+// const loadedContent = {}
 
 /**
  * Regex
